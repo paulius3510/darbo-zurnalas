@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Icon Generator</title>
+</head>
+<body>
+    <h2>PWA Icon Generator</h2>
+    <canvas id="canvas192" width="192" height="192"></canvas>
+    <canvas id="canvas512" width="512" height="512"></canvas>
+    <br>
+    <button onclick="downloadIcons()">Download Icons</button>
+
+    <script>
+        function drawIcon(canvas, size) {
+            const ctx = canvas.getContext('2d');
+
+            // Background
+            ctx.fillStyle = '#2563eb';
+            ctx.fillRect(0, 0, size, size);
+
+            // Calendar icon (white)
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = size * 0.04;
+
+            const padding = size * 0.15;
+            const rectX = padding;
+            const rectY = padding + size * 0.05;
+            const rectWidth = size - padding * 2;
+            const rectHeight = size - padding * 2 - size * 0.05;
+            const radius = size * 0.05;
+
+            // Rounded rectangle
+            ctx.beginPath();
+            ctx.moveTo(rectX + radius, rectY);
+            ctx.lineTo(rectX + rectWidth - radius, rectY);
+            ctx.quadraticCurveTo(rectX + rectWidth, rectY, rectX + rectWidth, rectY + radius);
+            ctx.lineTo(rectX + rectWidth, rectY + rectHeight - radius);
+            ctx.quadraticCurveTo(rectX + rectWidth, rectY + rectHeight, rectX + rectWidth - radius, rectY + rectHeight);
+            ctx.lineTo(rectX + radius, rectY + rectHeight);
+            ctx.quadraticCurveTo(rectX, rectY + rectHeight, rectX, rectY + rectHeight - radius);
+            ctx.lineTo(rectX, rectY + radius);
+            ctx.quadraticCurveTo(rectX, rectY, rectX + radius, rectY);
+            ctx.closePath();
+            ctx.stroke();
+
+            // Top line
+            ctx.beginPath();
+            ctx.moveTo(rectX, rectY + size * 0.1);
+            ctx.lineTo(rectX + rectWidth, rectY + size * 0.1);
+            ctx.stroke();
+
+            // Top tabs
+            const tab1X = rectX + size * 0.25;
+            const tab2X = rectX + size * 0.55;
+            ctx.beginPath();
+            ctx.moveTo(tab1X, rectY - size * 0.03);
+            ctx.lineTo(tab1X, rectY + size * 0.05);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(tab2X, rectY - size * 0.03);
+            ctx.lineTo(tab2X, rectY + size * 0.05);
+            ctx.stroke();
+        }
+
+        drawIcon(document.getElementById('canvas192'), 192);
+        drawIcon(document.getElementById('canvas512'), 512);
+
+        function downloadIcons() {
+            const canvas192 = document.getElementById('canvas192');
+            const canvas512 = document.getElementById('canvas512');
+
+            canvas192.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'icon-192.png';
+                a.click();
+            });
+
+            setTimeout(() => {
+                canvas512.toBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'icon-512.png';
+                    a.click();
+                });
+            }, 500);
+        }
+    </script>
+</body>
+</html>
