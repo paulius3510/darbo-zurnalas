@@ -615,14 +615,20 @@ export default function WorkHoursJournal() {
         updated.materials = [...updated.materials, ...newMaterials];
       }
       if (data.vinna && Array.isArray(data.vinna)) {
-        const newWork = data.vinna.map((w: any) => ({
-          id: generateId(),
-          date: w.dags || w.date || getTodayDate(),
-          startTime: w.byrjun || w.start || '08:00',
-          endTime: w.lok || w.end || '16:00',
-          hours: w.stundir || w.hours || 8,
-          notes: w.athugasemd || w.notes || ''
-        }));
+        const newWork = data.vinna.map((w: any) => {
+          const startTime = w.byrjun || w.start || '08:00';
+          const endTime = w.lok || w.end || '16:00';
+          // Calculate hours from start/end times, or use provided value
+          const hours = w.stundir || w.hours || calculateHours(startTime, endTime);
+          return {
+            id: generateId(),
+            date: w.dags || w.date || getTodayDate(),
+            startTime,
+            endTime,
+            hours,
+            notes: w.athugasemd || w.notes || ''
+          };
+        });
         updated.workEntries = [...updated.workEntries, ...newWork];
       }
       updateProject(updated);
