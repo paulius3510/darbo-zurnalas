@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, FileText, Share2, ArrowLeft, Clock, Package, Calculator, Download, X, Edit2, Check } from 'lucide-react';
+import * as GoogleSheetsAPI from './api/googleSheetsAPI';
 
 interface WorkEntry {
   id: string;
@@ -99,7 +100,7 @@ export default function WorkHoursJournal() {
     return { totalHours, totalMaterials, laborCost, totalCost: laborCost + totalMaterials };
   };
 
-  const addProject = () => {
+  const addProject = async () => {
     if (!newProject.name && !newProject.client) return;
     const project: Project = {
       id: generateId(),
@@ -112,6 +113,9 @@ export default function WorkHoursJournal() {
     setProjects([...projects, project]);
     setNewProject({ name: '', client: '', address: '', hourlyRate: 0 });
     setShowNewProject(false);
+
+    // Sync to Google Sheets
+    await GoogleSheetsAPI.saveProject(project);
   };
 
   const deleteProject = (id: string) => {

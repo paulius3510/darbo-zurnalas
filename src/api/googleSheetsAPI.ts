@@ -13,6 +13,12 @@ const APPS_SCRIPT_WEB_APP_URL = import.meta.env.VITE_APPS_SCRIPT_URL || '';
 // Enable/disable API (configured in .env file)
 const API_ENABLED = import.meta.env.VITE_API_ENABLED === 'true';
 
+// Debug: Log configuration on module load
+console.log('🔧 Google Sheets API Config:');
+console.log('  API_ENABLED:', API_ENABLED);
+console.log('  VITE_API_ENABLED:', import.meta.env.VITE_API_ENABLED);
+console.log('  URL configured:', APPS_SCRIPT_WEB_APP_URL ? 'Yes' : 'No');
+
 export interface Project {
   id: string;
   name: string;
@@ -76,11 +82,19 @@ export async function getAllData(): Promise<AllData | null> {
  * Save project to Google Sheets
  */
 export async function saveProject(project: Project): Promise<boolean> {
+  console.log('📝 saveProject called, API_ENABLED:', API_ENABLED);
+
   if (!API_ENABLED) {
+    console.log('⚠️ API disabled, skipping Google Sheets sync');
     return true; // Skip API call
   }
 
+  console.log('🔄 Syncing project to Google Sheets...');
+
   try {
+    console.log('📤 Sending to URL:', APPS_SCRIPT_WEB_APP_URL);
+    console.log('📦 Data:', { action: 'saveProject', project });
+
     const response = await fetch(APPS_SCRIPT_WEB_APP_URL, {
       method: 'POST',
       headers: {
@@ -92,10 +106,20 @@ export async function saveProject(project: Project): Promise<boolean> {
       }),
     });
 
+    console.log('📨 Response status:', response.status, response.statusText);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Response error:', errorText);
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
     const result = await response.json();
+    console.log('✅ Response data:', result);
     return result.success === true;
   } catch (error) {
-    console.error('Error saving project:', error);
+    console.error('❌ Error saving project:', error);
+    console.error('❌ Error details:', error instanceof Error ? error.message : 'Unknown error');
     return false;
   }
 }

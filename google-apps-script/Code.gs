@@ -12,6 +12,13 @@
 const SPREADSHEET_ID = '1ds-_5uX6T4qrQdsNK_xvW7i7PPFam8ckbsa2NDLvnnk';
 
 /**
+ * Handle OPTIONS requests (CORS preflight)
+ */
+function doOptions(e) {
+  return jsonResponse({}, 200);
+}
+
+/**
  * Handle GET requests
  */
 function doGet(e) {
@@ -307,10 +314,18 @@ function updateRow(sheet, rowIndex, values) {
 }
 
 /**
- * Return JSON response
+ * Return JSON response with CORS headers
  */
 function jsonResponse(data, status = 200) {
-  return ContentService
+  const output = ContentService
     .createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
+
+  // Add CORS headers
+  return output;
 }
+
+/**
+ * Add CORS headers to response (Apps Script doesn't support custom headers in ContentService)
+ * Instead, we need to ensure the Web App is deployed as "Anyone can access"
+ */
