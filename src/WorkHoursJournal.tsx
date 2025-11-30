@@ -107,6 +107,26 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
               totalMaterials,
               totalCost: laborCost + totalMaterials
             });
+
+            // Update page title and meta tags for better link previews
+            const projectTitle = project.name || project.client;
+            document.title = `Reikningur - ${projectTitle}`;
+
+            // Update meta description
+            const metaDescription = document.querySelector('meta[name="description"]');
+            if (metaDescription) {
+              metaDescription.setAttribute('content', `Verkefnayfirlit fyrir ${project.client}`);
+            }
+
+            // Update Open Graph tags
+            const ogTitle = document.querySelector('meta[property="og:title"]');
+            if (ogTitle) {
+              ogTitle.setAttribute('content', `Reikningur - ${projectTitle}`);
+            }
+            const ogDescription = document.querySelector('meta[property="og:description"]');
+            if (ogDescription) {
+              ogDescription.setAttribute('content', `Verkefnayfirlit fyrir ${project.client}`);
+            }
           } else {
             setError('Verkefni fannst ekki');
           }
@@ -200,17 +220,17 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
               </div>
             </div>
 
-            {/* Print Button */}
+            {/* Print Button - hidden when printing */}
             <button
               onClick={() => window.print()}
-              className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 flex items-center justify-center gap-2"
+              className="print-hidden w-full bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 flex items-center justify-center gap-2"
             >
               🖨️ Prenta
             </button>
           </div>
 
-          {/* Footer */}
-          <div className="border-t px-4 py-3 text-center text-gray-400 text-sm">
+          {/* Footer - hidden when printing */}
+          <div className="print-hidden border-t px-4 py-3 text-center text-gray-400 text-sm">
             Darbo Žurnalas
           </div>
         </div>

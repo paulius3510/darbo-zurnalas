@@ -18,3 +18,26 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* Print styles - hide non-essential elements when printing */
+@media print {
+  .print-hidden {
+    display: none !important;
+  }
+
+  /* Remove shadows and background for cleaner print */
+  .shadow-lg {
+    box-shadow: none !important;
+  }
+
+  /* Ensure white background */
+  body {
+    background: white !important;
+  }
+
+  /* Remove padding from container */
+  .min-h-screen {
+    min-height: auto !important;
+    padding: 0 !important;
+  }
+}
