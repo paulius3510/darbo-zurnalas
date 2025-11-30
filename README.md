@@ -12,8 +12,7 @@ Darbo valandų ir medžiagų sekimo PWA aplikacija plytelių klojimo verslui.
 - ✅ Darbo valandų sekimas (data, pradžia, pabaiga, pastabos)
 - ✅ Medžiagų/efnių sekimas (data, pavadinimas, kiekis, kaina)
 - ✅ JSON importo funkcija
-- ✅ Sąskaitos/reikningur peržiūra
-- ✅ Būsenos kopijavimas klientui
+- ✅ Profesionalus Reikningur su išsamia informacija
 - ✅ Public Invoice nuoroda klientui (dalintis per SMS/email)
 - ✅ PWA support (veikia offline, galima įdiegti telefone)
 - ✅ LocalStorage duomenų saugojimas
@@ -149,6 +148,14 @@ darbo-zurnalas/
 - Jokių slaptažodžių ar API keys kode
 
 ## 📝 Changelog
+
+### v1.3.0 (2025-11-30)
+- ✅ Profesionalus Reikningur dizainas (tamsus header, išsamus valandų/medžiagų sąrašas)
+- ✅ Public Invoice View su pilna detalia informacija
+- ✅ 24h laiko formatas
+- ✅ Projektai rikiuojami pagal sukūrimo datą (naujausi viršuje)
+- ✅ Nauji įrašai pridedami viršuje
+- ✅ Pašalintas pasenęs "Staða" mygtukas
 
 ### v1.2.0 (2025-11-30)
 - ✅ Public Invoice View - dalijimasis suvestine su klientu per nuorodą

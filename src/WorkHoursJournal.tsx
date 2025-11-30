@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, FileText, Share2, ArrowLeft, Clock, Package, Calculator, Download, X, Edit2, Check } from 'lucide-react';
+import { Plus, Trash2, FileText, ArrowLeft, Clock, Package, Calculator, Download, X, Edit2, Check } from 'lucide-react';
 import * as GoogleSheetsAPI from './api/googleSheetsAPI';
 
 interface WorkEntry {
@@ -68,14 +68,14 @@ const sortByDate = (items: any[]) => {
 };
 
 const groupByDate = (items: any[]) => {
-  const sorted = sortByDate(items);
   const groups: { [key: string]: any[] } = {};
-  sorted.forEach(item => {
+  items.forEach(item => {
     const date = item.date || getTodayDate();
     if (!groups[date]) groups[date] = [];
     groups[date].push(item);
   });
-  return Object.entries(groups).sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime());
+  // Sort groups by date descending (newest first)
+  return Object.entries(groups).sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime());
 };
 
 // Public Invoice View Component (for clients)
@@ -444,12 +444,13 @@ export default function WorkHoursJournal() {
     const entry: WorkEntry = {
       id: generateId(),
       date: getTodayDate(),
-      startTime: '08:00',
-      endTime: '16:00',
-      hours: 8,
+      startTime: '',
+      endTime: '',
+      hours: 0,
       notes: ''
     };
-    updateProject({ ...selectedProject, workEntries: [...selectedProject.workEntries, entry] });
+    // Add new entry at the beginning
+    updateProject({ ...selectedProject, workEntries: [entry, ...selectedProject.workEntries] });
 
     // Sync to Google Sheets
     await GoogleSheetsAPI.saveWorkEntry({
@@ -531,7 +532,8 @@ export default function WorkHoursJournal() {
       quantity: '',
       amount: 0
     };
-    updateProject({ ...selectedProject, materials: [...selectedProject.materials, material] });
+    // Add new entry at the beginning
+    updateProject({ ...selectedProject, materials: [material, ...selectedProject.materials] });
 
     // Sync to Google Sheets
     await GoogleSheetsAPI.saveMaterial({
@@ -632,26 +634,6 @@ export default function WorkHoursJournal() {
     }
   };
 
-  const generateStatusMessage = () => {
-    if (!selectedProject) return '';
-    const summary = getProjectSummary(selectedProject);
-    const today = new Date().toLocaleDateString('is-IS');
-    return `${selectedProject.name || selectedProject.client} - Staða
-==================
-Vinnustundir: ${summary.totalHours} klst
-Laun: ${formatCurrency(summary.laborCost)}
-Efni: ${formatCurrency(summary.totalMaterials)}
-==================
-Samtals: ${formatCurrency(summary.totalCost)}
-
-Síðast uppfært: ${today}`;
-  };
-
-  const copyStatus = () => {
-    navigator.clipboard.writeText(generateStatusMessage());
-    alert('Staða afrituð!');
-  };
-
   const copyPublicUrl = () => {
     if (!selectedProject) return;
     const url = `${window.location.origin}${window.location.pathname}?v=${selectedProject.id}`;
@@ -700,7 +682,7 @@ Síðast uppfært: ${today}`;
                 <p>Engin verkefni skráð</p>
               </div>
             ) : (
-              projects.map(project => {
+              [...projects].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(project => {
                 const summary = getProjectSummary(project);
                 return (
                   <div key={project.id} onClick={() => { setSelectedProject(project); setCurrentView('project'); }} className="bg-white p-4 rounded-lg shadow-md border cursor-pointer hover:shadow-lg">
@@ -779,9 +761,6 @@ Síðast uppfært: ${today}`;
 
           {/* Action Buttons */}
           <div className="flex gap-2">
-            <button onClick={copyStatus} className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">
-              <Share2 size={18} /> Staða
-            </button>
             <button onClick={() => setShowInvoice(true)} className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
               <FileText size={18} /> Reikningur
             </button>
