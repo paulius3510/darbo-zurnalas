@@ -1,4 +1,4 @@
-const CACHE_NAME = 'darbo-zurnalas-v1';
+const CACHE_NAME = 'darbo-zurnalas-v2';
 const urlsToCache = [
   '/darbo-zurnalas/',
   '/darbo-zurnalas/index.html',
@@ -39,6 +39,13 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - network first, then cache fallback
 self.addEventListener('fetch', (event) => {
+  // Skip service worker for Google Apps Script API requests
+  if (event.request.url.includes('script.google.com') ||
+      event.request.url.includes('script.googleusercontent.com')) {
+    // Let the request go directly to the network without SW intervention
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
