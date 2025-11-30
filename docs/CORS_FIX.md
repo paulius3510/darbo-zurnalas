@@ -1,16 +1,38 @@
 # CORS Fix for Google Apps Script
 
-## ❌ Problema
+## ✅ Dabartinis Sprendimas (Įdiegtas)
 
-Kai testuoji lokaliai (localhost:5173), matai CORS error:
+**Nuo v1.1.0 (2025-11-30)** CORS problema išspręsta naudojant **GET metodą** vietoj POST.
+
+Visos API operacijos dabar naudoja GET su URL parametrais:
+```
+GET ?action=saveProject&payload={encoded_json}
+GET ?action=deleteProject&id={id}
+```
+
+Tai veikia, nes naršyklės leidžia cross-origin GET užklausas.
+
+---
+
+## ❌ Senoji Problema (Istorija)
+
+Kai naudojome POST metodą su localhost:5173, matėme CORS error:
 ```
 Access to fetch at 'https://script.google.com/...' from origin 'http://localhost:5173'
 has been blocked by CORS policy
 ```
 
-## ✅ Sprendimas
+## Kodėl GET veikia?
 
-Google Apps Script Web Apps turi apribojimus su CORS headers. Yra **2 būdai**:
+Google Apps Script Web Apps turi apribojimus su CORS headers:
+- **POST requests:** Blokuojami iš localhost (CORS policy)
+- **GET requests:** Leidžiami iš visur (naršyklės neblokuoja)
+
+---
+
+## Lokalus Testavimas
+
+Yra **2 būdai** testuoti lokaliai:
 
 ---
 
@@ -77,16 +99,17 @@ Vietoj Web App, naudoti Google Sheets API v4 su API key. Tai sudėtingesnė konf
 ### Kodėl Apps Script neturi CORS?
 
 Google Apps Script Web Apps vykdomi per `script.google.com` domeną:
-- GET requests leidžiami iš visur
-- POST requests blokuojami localhost (CORS policy)
+- **GET requests:** Leidžiami iš visur (naudojame šį metodą!)
+- **POST requests:** Blokuojami localhost (CORS policy)
 - ContentService negali pridėti custom headers (Apps Script apribojimas)
 
-### Kas veikia:
-- ✅ HTTPS → HTTPS (production → Apps Script)
-- ❌ HTTP → HTTPS (localhost → Apps Script)
+### Dabartinis sprendimas (GET):
+- ✅ localhost → Apps Script (GET veikia!)
+- ✅ production → Apps Script (GET veikia!)
 
-### Sprendimas:
-Testuoti production aplinkoje, kur viskas HTTPS.
+### Senasis sprendimas (POST - nebenaudojamas):
+- ❌ localhost → Apps Script (POST blokuojamas)
+- ✅ production → Apps Script (POST veikia)
 
 ---
 
@@ -109,3 +132,4 @@ npm run dev
 ---
 
 *Sukurta: 2025-11-30*
+*Atnaujinta: 2025-11-30 (GET metodas įdiegtas)*

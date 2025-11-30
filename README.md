@@ -16,7 +16,7 @@ Darbo valandų ir medžiagų sekimo PWA aplikacija plytelių klojimo verslui.
 - ✅ Būsenos kopijavimas klientui
 - ✅ PWA support (veikia offline, galima įdiegti telefone)
 - ✅ LocalStorage duomenų saugojimas
-- 🔄 Google Sheets sinchronizacija (pasiruošta, reikia konfigūruoti)
+- ✅ Google Sheets sinchronizacija (veikia)
 
 ## 🛠️ Tech Stack
 
@@ -80,16 +80,23 @@ Aplikacija šiuo metu veikia su LocalStorage. Jei nori sinchronizuoti duomenis t
 
 ### Žingsnis 3: Konfigūruoti React App
 
-1. Atidaryti `src/api/googleSheetsAPI.ts`
-2. Pakeisti:
-   ```typescript
-   const APPS_SCRIPT_WEB_APP_URL = 'YOUR_WEB_APP_URL_HERE';
-   const API_ENABLED = true;
+1. Sukurti `.env` failą projekto šaknyje (arba nukopijuoti iš `.env.example`):
+   ```bash
+   cp .env.example .env
    ```
+
+2. Užpildyti `.env` failą:
+   ```env
+   VITE_APPS_SCRIPT_URL=https://script.google.com/macros/s/YOUR_ID/exec
+   VITE_API_ENABLED=true
+   ```
+
 3. Rebuild ir deploy:
    ```bash
    npm run deploy
    ```
+
+Išsamios instrukcijos: [docs/ENV_SETUP.md](docs/ENV_SETUP.md)
 
 ## 📱 PWA Installation
 
@@ -120,10 +127,11 @@ darbo-zurnalas/
 │   ├── icon.svg          # App icon
 │   └── icons/            # PWA icons
 ├── docs/
-│   └── GOOGLE_SHEETS_SETUP.md  # Setup instrukcijos
-├── google-apps-script/
-│   └── Code.gs           # Apps Script kodas
-└── PROJECT_CONTEXT.md    # Projekto planas
+│   ├── GOOGLE_SHEETS_SETUP.md  # Sheets struktūros instrukcijos
+│   ├── ENV_SETUP.md            # Environment konfigūracija
+│   └── CORS_FIX.md             # CORS problemų sprendimai
+└── google-apps-script/
+    └── Code.gs           # Apps Script kodas
 ```
 
 ## 🌐 Kalba ir Valiuta
@@ -141,12 +149,19 @@ darbo-zurnalas/
 
 ## 📝 Changelog
 
+### v1.1.0 (2025-11-30)
+- ✅ Pilna Google Sheets sinchronizacija (visos CRUD operacijos)
+- ✅ CORS pataisymas (perjungta iš POST į GET)
+- ✅ Service Worker pataisymai (API bypass)
+- ✅ Pradinio duomenų įkėlimo iš Sheets palaikymas
+- ✅ onBlur sync tekstiniams laukams
+
 ### v1.0.0 (2025-11-29)
 - ✅ Pradinis release
 - ✅ Vite + React + TypeScript setup
 - ✅ PWA support
 - ✅ GitHub Pages deployment
-- ✅ Google Sheets API integration (pasiruošta)
+- ✅ Google Sheets API integracija (paruošta)
 
 ## 📄 License
 
