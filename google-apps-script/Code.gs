@@ -20,11 +20,13 @@ function doOptions(e) {
 
 /**
  * Handle GET requests
+ * Note: All write operations use GET with payload parameter due to CORS restrictions
  */
 function doGet(e) {
   try {
     const action = e.parameter.action;
 
+    // READ operations
     if (action === 'getAll') {
       return getAllData();
     }
@@ -39,6 +41,42 @@ function doGet(e) {
 
     if (action === 'getMaterials') {
       return getSheetData('materials');
+    }
+
+    // WRITE operations (via GET due to CORS)
+    if (action === 'saveProject') {
+      const project = JSON.parse(e.parameter.payload);
+      return saveProject(project);
+    }
+
+    if (action === 'saveWorkEntry') {
+      const entry = JSON.parse(e.parameter.payload);
+      return saveWorkEntry(entry);
+    }
+
+    if (action === 'saveMaterial') {
+      const material = JSON.parse(e.parameter.payload);
+      return saveMaterial(material);
+    }
+
+    if (action === 'deleteProject') {
+      const id = e.parameter.id;
+      return deleteRow('projects', id);
+    }
+
+    if (action === 'deleteWorkEntry') {
+      const id = e.parameter.id;
+      return deleteRow('work_entries', id);
+    }
+
+    if (action === 'deleteMaterial') {
+      const id = e.parameter.id;
+      return deleteRow('materials', id);
+    }
+
+    if (action === 'updateProject') {
+      const project = JSON.parse(e.parameter.payload);
+      return updateProject(project);
     }
 
     return jsonResponse({ error: 'Invalid action' }, 400);

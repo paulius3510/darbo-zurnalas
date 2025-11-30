@@ -1,4 +1,4 @@
-const CACHE_NAME = 'darbo-zurnalas-v2';
+const CACHE_NAME = 'darbo-zurnalas-v3';
 const urlsToCache = [
   '/darbo-zurnalas/',
   '/darbo-zurnalas/index.html',

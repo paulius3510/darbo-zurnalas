@@ -80,6 +80,7 @@ export async function getAllData(): Promise<AllData | null> {
 
 /**
  * Save project to Google Sheets
+ * Note: Uses GET with payload parameter due to CORS restrictions with POST
  */
 export async function saveProject(project: Project): Promise<boolean> {
   console.log('📝 saveProject called, API_ENABLED:', API_ENABLED);
@@ -92,19 +93,13 @@ export async function saveProject(project: Project): Promise<boolean> {
   console.log('🔄 Syncing project to Google Sheets...');
 
   try {
-    console.log('📤 Sending to URL:', APPS_SCRIPT_WEB_APP_URL);
-    console.log('📦 Data:', { action: 'saveProject', project });
+    // Use GET with encoded payload to avoid CORS issues
+    const payload = encodeURIComponent(JSON.stringify(project));
+    const url = `${APPS_SCRIPT_WEB_APP_URL}?action=saveProject&payload=${payload}`;
 
-    const response = await fetch(APPS_SCRIPT_WEB_APP_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'saveProject',
-        project: project,
-      }),
-    });
+    console.log('📤 Sending to URL:', url.substring(0, 100) + '...');
+
+    const response = await fetch(url);
 
     console.log('📨 Response status:', response.status, response.statusText);
 
@@ -133,18 +128,12 @@ export async function saveWorkEntry(entry: WorkEntry): Promise<boolean> {
   }
 
   try {
-    const response = await fetch(APPS_SCRIPT_WEB_APP_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'saveWorkEntry',
-        entry: entry,
-      }),
-    });
+    const payload = encodeURIComponent(JSON.stringify(entry));
+    const url = `${APPS_SCRIPT_WEB_APP_URL}?action=saveWorkEntry&payload=${payload}`;
 
+    const response = await fetch(url);
     const result = await response.json();
+    console.log('✅ Work entry saved:', result);
     return result.success === true;
   } catch (error) {
     console.error('Error saving work entry:', error);
@@ -161,18 +150,12 @@ export async function saveMaterial(material: MaterialEntry): Promise<boolean> {
   }
 
   try {
-    const response = await fetch(APPS_SCRIPT_WEB_APP_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'saveMaterial',
-        material: material,
-      }),
-    });
+    const payload = encodeURIComponent(JSON.stringify(material));
+    const url = `${APPS_SCRIPT_WEB_APP_URL}?action=saveMaterial&payload=${payload}`;
 
+    const response = await fetch(url);
     const result = await response.json();
+    console.log('✅ Material saved:', result);
     return result.success === true;
   } catch (error) {
     console.error('Error saving material:', error);
@@ -189,18 +172,11 @@ export async function deleteProject(id: string): Promise<boolean> {
   }
 
   try {
-    const response = await fetch(APPS_SCRIPT_WEB_APP_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'deleteProject',
-        id: id,
-      }),
-    });
+    const url = `${APPS_SCRIPT_WEB_APP_URL}?action=deleteProject&id=${encodeURIComponent(id)}`;
 
+    const response = await fetch(url);
     const result = await response.json();
+    console.log('✅ Project deleted:', result);
     return result.success === true;
   } catch (error) {
     console.error('Error deleting project:', error);
@@ -217,18 +193,11 @@ export async function deleteWorkEntry(id: string): Promise<boolean> {
   }
 
   try {
-    const response = await fetch(APPS_SCRIPT_WEB_APP_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'deleteWorkEntry',
-        id: id,
-      }),
-    });
+    const url = `${APPS_SCRIPT_WEB_APP_URL}?action=deleteWorkEntry&id=${encodeURIComponent(id)}`;
 
+    const response = await fetch(url);
     const result = await response.json();
+    console.log('✅ Work entry deleted:', result);
     return result.success === true;
   } catch (error) {
     console.error('Error deleting work entry:', error);
@@ -245,18 +214,11 @@ export async function deleteMaterial(id: string): Promise<boolean> {
   }
 
   try {
-    const response = await fetch(APPS_SCRIPT_WEB_APP_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'deleteMaterial',
-        id: id,
-      }),
-    });
+    const url = `${APPS_SCRIPT_WEB_APP_URL}?action=deleteMaterial&id=${encodeURIComponent(id)}`;
 
+    const response = await fetch(url);
     const result = await response.json();
+    console.log('✅ Material deleted:', result);
     return result.success === true;
   } catch (error) {
     console.error('Error deleting material:', error);
@@ -273,18 +235,12 @@ export async function updateProject(project: Project): Promise<boolean> {
   }
 
   try {
-    const response = await fetch(APPS_SCRIPT_WEB_APP_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'updateProject',
-        project: project,
-      }),
-    });
+    const payload = encodeURIComponent(JSON.stringify(project));
+    const url = `${APPS_SCRIPT_WEB_APP_URL}?action=updateProject&payload=${payload}`;
 
+    const response = await fetch(url);
     const result = await response.json();
+    console.log('✅ Project updated:', result);
     return result.success === true;
   } catch (error) {
     console.error('Error updating project:', error);
