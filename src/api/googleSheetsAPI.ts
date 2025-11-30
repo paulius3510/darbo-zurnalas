@@ -7,11 +7,11 @@
  * 3. Replace APPS_SCRIPT_WEB_APP_URL below with your URL
  */
 
-// TODO: Replace with your actual Apps Script Web App URL
-const APPS_SCRIPT_WEB_APP_URL = 'YOUR_WEB_APP_URL_HERE';
+// Load from environment variables (configured in .env file)
+const APPS_SCRIPT_WEB_APP_URL = import.meta.env.VITE_APPS_SCRIPT_URL || '';
 
-// Enable/disable API (set to false to use localStorage only)
-const API_ENABLED = false; // Change to true after setting up Web App URL
+// Enable/disable API (configured in .env file)
+const API_ENABLED = import.meta.env.VITE_API_ENABLED === 'true';
 
 export interface Project {
   id: string;
