@@ -80,11 +80,49 @@ export default function WorkHoursJournal() {
   const [showEditProject, setShowEditProject] = useState(false);
   const [editProjectData, setEditProjectData] = useState({ name: '', client: '', address: '', hourlyRate: 0 });
 
+  // Load data on mount - first try Google Sheets, then localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('verkefni_data');
-    if (saved) {
-      try { setProjects(JSON.parse(saved)); } catch (e) {}
-    }
+    const loadData = async () => {
+      // Try to load from Google Sheets first
+      const sheetsData = await GoogleSheetsAPI.loadFromSheets();
+
+      if (sheetsData && sheetsData.projects && sheetsData.projects.length > 0) {
+        console.log('📥 Loaded data from Google Sheets');
+        // Convert flat structure to nested structure
+        const projectsWithEntries = sheetsData.projects.map(p => ({
+          ...p,
+          workEntries: sheetsData.workEntries
+            .filter(e => e.projectId === p.id)
+            .map(e => ({
+              id: e.id,
+              date: e.date,
+              startTime: e.startTime,
+              endTime: e.endTime,
+              hours: e.hours,
+              notes: e.notes
+            })),
+          materials: sheetsData.materials
+            .filter(m => m.projectId === p.id)
+            .map(m => ({
+              id: m.id,
+              date: m.date,
+              name: m.name,
+              quantity: m.quantity,
+              amount: m.amount
+            }))
+        }));
+        setProjects(projectsWithEntries);
+      } else {
+        // Fallback to localStorage
+        console.log('📥 Loading data from localStorage');
+        const saved = localStorage.getItem('verkefni_data');
+        if (saved) {
+          try { setProjects(JSON.parse(saved)); } catch (e) {}
+        }
+      }
+    };
+
+    loadData();
   }, []);
 
   useEffect(() => {
@@ -118,8 +156,22 @@ export default function WorkHoursJournal() {
     await GoogleSheetsAPI.saveProject(project);
   };
 
-  const deleteProject = (id: string) => {
+  const deleteProject = async (id: string) => {
     if (confirm('Eyða verkefni?')) {
+      // Delete all work entries and materials for this project from Google Sheets
+      const project = projects.find(p => p.id === id);
+      if (project) {
+        for (const entry of project.workEntries) {
+          await GoogleSheetsAPI.deleteWorkEntry(entry.id);
+        }
+        for (const material of project.materials) {
+          await GoogleSheetsAPI.deleteMaterial(material.id);
+        }
+      }
+
+      // Delete project from Google Sheets
+      await GoogleSheetsAPI.deleteProject(id);
+
       setProjects(projects.filter(p => p.id !== id));
       if (selectedProject?.id === id) {
         setSelectedProject(null);
@@ -144,7 +196,7 @@ export default function WorkHoursJournal() {
     setShowEditProject(true);
   };
 
-  const saveEditProject = () => {
+  const saveEditProject = async () => {
     if (!selectedProject) return;
     const updated = {
       ...selectedProject,
@@ -155,9 +207,20 @@ export default function WorkHoursJournal() {
     };
     updateProject(updated);
     setShowEditProject(false);
+
+    // Sync to Google Sheets
+    await GoogleSheetsAPI.updateProject({
+      id: updated.id,
+      name: updated.name,
+      client: updated.client,
+      address: updated.address,
+      hourlyRate: updated.hourlyRate,
+      status: updated.status,
+      createdAt: updated.createdAt
+    });
   };
 
-  const addWorkEntry = () => {
+  const addWorkEntry = async () => {
     if (!selectedProject) return;
     const entry: WorkEntry = {
       id: generateId(),
@@ -168,13 +231,24 @@ export default function WorkHoursJournal() {
       notes: ''
     };
     updateProject({ ...selectedProject, workEntries: [...selectedProject.workEntries, entry] });
+
+    // Sync to Google Sheets
+    await GoogleSheetsAPI.saveWorkEntry({
+      id: entry.id,
+      projectId: selectedProject.id,
+      date: entry.date,
+      startTime: entry.startTime,
+      endTime: entry.endTime,
+      hours: entry.hours,
+      notes: entry.notes
+    });
   };
 
-  const updateWorkEntry = (entryId: string, field: string, value: any) => {
+  const updateWorkEntry = (entryId: string, field: string, value: string) => {
     if (!selectedProject) return;
     const entries = selectedProject.workEntries.map(e => {
       if (e.id !== entryId) return e;
-      const updated = { ...e, [field]: value };
+      const updated: WorkEntry = { ...e, [field]: value };
       if (field === 'startTime' || field === 'endTime') {
         updated.hours = calculateHours(
           field === 'startTime' ? value : e.startTime,
@@ -183,15 +257,53 @@ export default function WorkHoursJournal() {
       }
       return updated;
     });
-    updateProject({ ...selectedProject, workEntries: entries });
+
+    const updatedProject = { ...selectedProject, workEntries: entries };
+    updateProject(updatedProject);
+
+    // Sync to Google Sheets for date/time changes
+    if (field === 'date' || field === 'startTime' || field === 'endTime') {
+      const entry = entries.find(e => e.id === entryId);
+      if (entry) {
+        GoogleSheetsAPI.saveWorkEntry({
+          id: entry.id,
+          projectId: selectedProject.id,
+          date: entry.date,
+          startTime: entry.startTime,
+          endTime: entry.endTime,
+          hours: entry.hours,
+          notes: entry.notes
+        });
+      }
+    }
   };
 
-  const deleteWorkEntry = (entryId: string) => {
+  // Sync work entry on blur (for text fields like notes)
+  const syncWorkEntryOnBlur = (entryId: string) => {
+    if (!selectedProject) return;
+    const entry = selectedProject.workEntries.find(e => e.id === entryId);
+    if (entry) {
+      GoogleSheetsAPI.saveWorkEntry({
+        id: entry.id,
+        projectId: selectedProject.id,
+        date: entry.date,
+        startTime: entry.startTime,
+        endTime: entry.endTime,
+        hours: entry.hours,
+        notes: entry.notes
+      });
+    }
+  };
+
+  const deleteWorkEntry = async (entryId: string) => {
     if (!selectedProject) return;
     updateProject({ ...selectedProject, workEntries: selectedProject.workEntries.filter(e => e.id !== entryId) });
+
+    // Sync to Google Sheets
+    await GoogleSheetsAPI.deleteWorkEntry(entryId);
   };
 
-  const addMaterial = () => {
+  const addMaterial = async () => {
     if (!selectedProject) return;
     const material: MaterialEntry = {
       id: generateId(),
@@ -201,19 +313,69 @@ export default function WorkHoursJournal() {
       amount: 0
     };
     updateProject({ ...selectedProject, materials: [...selectedProject.materials, material] });
+
+    // Sync to Google Sheets
+    await GoogleSheetsAPI.saveMaterial({
+      id: material.id,
+      projectId: selectedProject.id,
+      date: material.date,
+      name: material.name,
+      quantity: material.quantity,
+      amount: material.amount
+    });
   };
 
-  const updateMaterial = (materialId: string, field: string, value: any) => {
+  const updateMaterial = (materialId: string, field: string, value: string | number) => {
     if (!selectedProject) return;
-    const materials = selectedProject.materials.map(m =>
-      m.id === materialId ? { ...m, [field]: field === 'amount' ? Number(value) || 0 : value } : m
-    );
-    updateProject({ ...selectedProject, materials });
+    const materials = selectedProject.materials.map(m => {
+      if (m.id === materialId) {
+        const updated: MaterialEntry = { ...m, [field]: field === 'amount' ? Number(value) || 0 : value };
+        return updated;
+      }
+      return m;
+    });
+
+    const updatedProject = { ...selectedProject, materials };
+    updateProject(updatedProject);
+
+    // Sync to Google Sheets on date change (other fields sync on blur)
+    if (field === 'date') {
+      const material = materials.find(m => m.id === materialId);
+      if (material) {
+        GoogleSheetsAPI.saveMaterial({
+          id: material.id,
+          projectId: selectedProject.id,
+          date: material.date,
+          name: material.name,
+          quantity: material.quantity,
+          amount: material.amount
+        });
+      }
+    }
   };
 
-  const deleteMaterial = (materialId: string) => {
+  // Sync material on blur (for text/number fields)
+  const syncMaterialOnBlur = (materialId: string) => {
+    if (!selectedProject) return;
+    const material = selectedProject.materials.find(m => m.id === materialId);
+    if (material) {
+      GoogleSheetsAPI.saveMaterial({
+        id: material.id,
+        projectId: selectedProject.id,
+        date: material.date,
+        name: material.name,
+        quantity: material.quantity,
+        amount: material.amount
+      });
+    }
+  };
+
+  const deleteMaterial = async (materialId: string) => {
     if (!selectedProject) return;
     updateProject({ ...selectedProject, materials: selectedProject.materials.filter(m => m.id !== materialId) });
+
+    // Sync to Google Sheets
+    await GoogleSheetsAPI.deleteMaterial(materialId);
   };
 
   const handleImport = () => {
@@ -434,7 +596,7 @@ Síðast uppfært: ${today}`;
                           <span className="font-semibold text-blue-600">{entry.hours} klst</span>
                           <button onClick={() => deleteWorkEntry(entry.id)} className="text-red-500 ml-auto hover:text-red-700"><Trash2 size={18} /></button>
                         </div>
-                        <input type="text" placeholder="Athugasemdir..." value={entry.notes} onChange={e => updateWorkEntry(entry.id, 'notes', e.target.value)} className="w-full border rounded px-2 py-1 text-sm mt-2" />
+                        <input type="text" placeholder="Athugasemdir..." value={entry.notes} onChange={e => updateWorkEntry(entry.id, 'notes', e.target.value)} onBlur={() => syncWorkEntryOnBlur(entry.id)} className="w-full border rounded px-2 py-1 text-sm mt-2" />
                       </div>
                     ))}
                   </div>
@@ -465,9 +627,9 @@ Síðast uppfært: ${today}`;
                       <div key={material.id} className="bg-white p-3 rounded-lg border shadow-sm ml-2">
                         <div className="flex flex-wrap gap-2 items-center">
                           <input type="date" value={material.date} onChange={e => updateMaterial(material.id, 'date', e.target.value)} className="border rounded px-2 py-1 text-sm" />
-                          <input type="text" placeholder="Heiti efnis" value={material.name} onChange={e => updateMaterial(material.id, 'name', e.target.value)} className="border rounded px-2 py-1 text-sm flex-1 min-w-32" />
-                          <input type="text" placeholder="Magn" value={material.quantity} onChange={e => updateMaterial(material.id, 'quantity', e.target.value)} className="border rounded px-2 py-1 text-sm w-20" />
-                          <input type="number" placeholder="Verð" value={material.amount || ''} onChange={e => updateMaterial(material.id, 'amount', e.target.value)} className="border rounded px-2 py-1 text-sm w-24" />
+                          <input type="text" placeholder="Heiti efnis" value={material.name} onChange={e => updateMaterial(material.id, 'name', e.target.value)} onBlur={() => syncMaterialOnBlur(material.id)} className="border rounded px-2 py-1 text-sm flex-1 min-w-32" />
+                          <input type="text" placeholder="Magn" value={material.quantity} onChange={e => updateMaterial(material.id, 'quantity', e.target.value)} onBlur={() => syncMaterialOnBlur(material.id)} className="border rounded px-2 py-1 text-sm w-20" />
+                          <input type="number" placeholder="Verð" value={material.amount || ''} onChange={e => updateMaterial(material.id, 'amount', e.target.value)} onBlur={() => syncMaterialOnBlur(material.id)} className="border rounded px-2 py-1 text-sm w-24" />
                           <span className="text-orange-600 font-semibold">{formatCurrency(material.amount)}</span>
                           <button onClick={() => deleteMaterial(material.id)} className="text-red-500 hover:text-red-700"><Trash2 size={18} /></button>
                         </div>
