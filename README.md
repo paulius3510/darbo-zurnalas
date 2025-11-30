@@ -14,6 +14,7 @@ Darbo valandų ir medžiagų sekimo PWA aplikacija plytelių klojimo verslui.
 - ✅ JSON importo funkcija
 - ✅ Sąskaitos/reikningur peržiūra
 - ✅ Būsenos kopijavimas klientui
+- ✅ Public Invoice nuoroda klientui (dalintis per SMS/email)
 - ✅ PWA support (veikia offline, galima įdiegti telefone)
 - ✅ LocalStorage duomenų saugojimas
 - ✅ Google Sheets sinchronizacija (veikia)
@@ -148,6 +149,11 @@ darbo-zurnalas/
 - Jokių slaptažodžių ar API keys kode
 
 ## 📝 Changelog
+
+### v1.2.0 (2025-11-30)
+- ✅ Public Invoice View - dalijimasis suvestine su klientu per nuorodą
+- ✅ Nuorodos kopijavimo funkcionalumas Reikningur skiltyje
+- ✅ Kliento vaizdas su realaus laiko duomenimis iš Google Sheets
 
 ### v1.1.0 (2025-11-30)
 - ✅ Pilna Google Sheets sinchronizacija (visos CRUD operacijos)

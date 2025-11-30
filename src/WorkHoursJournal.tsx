@@ -67,6 +67,158 @@ const groupByDate = (items: any[]) => {
   return Object.entries(groups).sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime());
 };
 
+// Public Invoice View Component (for clients)
+function PublicInvoiceView({ projectId }: { projectId: string }) {
+  const [publicProject, setPublicProject] = useState<{
+    name: string;
+    client: string;
+    address: string;
+    hourlyRate: number;
+    totalHours: number;
+    laborCost: number;
+    materials: { name: string; quantity: string; amount: number }[];
+    totalMaterials: number;
+    totalCost: number;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadPublicData = async () => {
+      try {
+        const data = await GoogleSheetsAPI.getAllData();
+        if (data && data.projects) {
+          const project = data.projects.find(p => p.id === projectId);
+          if (project) {
+            const workEntries = data.workEntries.filter(e => e.projectId === projectId);
+            const materials = data.materials.filter(m => m.projectId === projectId);
+            const totalHours = workEntries.reduce((sum, e) => sum + e.hours, 0);
+            const totalMaterials = materials.reduce((sum, m) => sum + m.amount, 0);
+            const laborCost = totalHours * project.hourlyRate;
+
+            setPublicProject({
+              name: project.name,
+              client: project.client,
+              address: project.address,
+              hourlyRate: project.hourlyRate,
+              totalHours,
+              laborCost,
+              materials: materials.map(m => ({ name: m.name, quantity: m.quantity, amount: m.amount })),
+              totalMaterials,
+              totalCost: laborCost + totalMaterials
+            });
+          } else {
+            setError('Verkefni fannst ekki');
+          }
+        } else {
+          setError('Gat ekki hlaðið gögnum');
+        }
+      } catch (e) {
+        setError('Villa við að hlaða gögnum');
+      }
+      setLoading(false);
+    };
+    loadPublicData();
+  }, [projectId]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Hleður...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !publicProject) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-6 max-w-md text-center">
+          <p className="text-red-600 text-lg mb-4">{error || 'Villa'}</p>
+          <p className="text-gray-500">Vinsamlegast athugaðu slóðina</p>
+        </div>
+      </div>
+    );
+  }
+
+  const today = new Date().toLocaleDateString('is-IS', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  return (
+    <div className="min-h-screen bg-gray-100 p-4">
+      <div className="max-w-lg mx-auto">
+        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+          {/* Header */}
+          <div className="bg-blue-600 text-white p-4">
+            <h1 className="text-xl font-bold">{publicProject.name || publicProject.client}</h1>
+            <p className="text-blue-100">{publicProject.client}</p>
+            <p className="text-blue-200 text-sm">{publicProject.address}</p>
+          </div>
+
+          {/* Content */}
+          <div className="p-4 space-y-4">
+            <div className="text-center text-gray-500 text-sm">
+              Uppfært: {today}
+            </div>
+
+            {/* Work Hours */}
+            <div className="bg-blue-50 rounded-lg p-4">
+              <h3 className="font-semibold text-blue-800 mb-2">Vinnustundir</h3>
+              <p className="text-lg">
+                {publicProject.totalHours} klst × {formatCurrency(publicProject.hourlyRate)} =
+                <span className="font-bold ml-2">{formatCurrency(publicProject.laborCost)}</span>
+              </p>
+            </div>
+
+            {/* Materials */}
+            <div className="bg-orange-50 rounded-lg p-4">
+              <h3 className="font-semibold text-orange-800 mb-2">Efni</h3>
+              {publicProject.materials.length === 0 ? (
+                <p className="text-gray-500">Ekkert efni skráð</p>
+              ) : (
+                <div className="space-y-1">
+                  {publicProject.materials.map((m, idx) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span>{m.name} {m.quantity && `(${m.quantity})`}</span>
+                      <span>{formatCurrency(m.amount)}</span>
+                    </div>
+                  ))}
+                  <div className="border-t pt-2 mt-2 font-semibold flex justify-between">
+                    <span>Samtals efni:</span>
+                    <span>{formatCurrency(publicProject.totalMaterials)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Total */}
+            <div className="bg-purple-100 rounded-lg p-4">
+              <div className="flex justify-between items-center">
+                <span className="text-lg font-bold text-purple-800">Samtals:</span>
+                <span className="text-2xl font-bold text-purple-800">{formatCurrency(publicProject.totalCost)}</span>
+              </div>
+            </div>
+
+            {/* Print Button */}
+            <button
+              onClick={() => window.print()}
+              className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 flex items-center justify-center gap-2"
+            >
+              🖨️ Prenta
+            </button>
+          </div>
+
+          {/* Footer */}
+          <div className="border-t px-4 py-3 text-center text-gray-400 text-sm">
+            Darbo Žurnalas
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function WorkHoursJournal() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentView, setCurrentView] = useState<string>('list');
@@ -79,6 +231,17 @@ export default function WorkHoursJournal() {
   const [showInvoice, setShowInvoice] = useState(false);
   const [showEditProject, setShowEditProject] = useState(false);
   const [editProjectData, setEditProjectData] = useState({ name: '', client: '', address: '', hourlyRate: 0 });
+  const [publicViewId, setPublicViewId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Check for public view URL parameter
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const viewId = params.get('v');
+    if (viewId) {
+      setPublicViewId(viewId);
+    }
+  }, []);
 
   // Load data on mount - first try Google Sheets, then localStorage
   useEffect(() => {
@@ -433,6 +596,19 @@ Síðast uppfært: ${today}`;
     alert('Staða afrituð!');
   };
 
+  const copyPublicUrl = () => {
+    if (!selectedProject) return;
+    const url = `${window.location.origin}${window.location.pathname}?v=${selectedProject.id}`;
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Public Invoice View (for clients)
+  if (publicViewId) {
+    return <PublicInvoiceView projectId={publicViewId} />;
+  }
+
   // Project List View
   if (currentView === 'list') {
     return (
@@ -723,6 +899,29 @@ Síðast uppfært: ${today}`;
                       <span>Samtals:</span>
                       <span>{formatCurrency(summary.totalCost)}</span>
                     </p>
+                  </div>
+
+                  {/* Share Link Section */}
+                  <div className="border-t pt-4 mt-4">
+                    <p className="text-sm text-gray-600 mb-2">🔗 Deila með viðskiptavini:</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={`${window.location.origin}${window.location.pathname}?v=${selectedProject.id}`}
+                        readOnly
+                        className="flex-1 border rounded px-2 py-1 text-xs bg-gray-50 text-gray-600"
+                      />
+                      <button
+                        onClick={copyPublicUrl}
+                        className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                          copied
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        }`}
+                      >
+                        {copied ? '✓ Afritað!' : '📋 Afrita'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
