@@ -52,6 +52,17 @@ const formatDate = (dateStr: string): string => {
   return date.toLocaleDateString('is-IS');
 };
 
+const formatTime = (timeStr: string): string => {
+  if (!timeStr) return '--:--';
+  // If it's an ISO string like "1899-12-30T09:46:08.000Z", extract time
+  if (timeStr.includes('T')) {
+    const date = new Date(timeStr);
+    return date.toLocaleTimeString('is-IS', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+  // If it's already in HH:MM format, return as is
+  return timeStr;
+};
+
 const sortByDate = (items: any[]) => {
   return [...items].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 };
@@ -76,7 +87,8 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
     hourlyRate: number;
     totalHours: number;
     laborCost: number;
-    materials: { name: string; quantity: string; amount: number }[];
+    workEntries: { date: string; startTime: string; endTime: string; hours: number; notes: string }[];
+    materials: { date: string; name: string; quantity: string; amount: number }[];
     totalMaterials: number;
     totalCost: number;
   } | null>(null);
@@ -103,7 +115,19 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
               hourlyRate: project.hourlyRate,
               totalHours,
               laborCost,
-              materials: materials.map(m => ({ name: m.name, quantity: m.quantity, amount: m.amount })),
+              workEntries: sortByDate(workEntries.map(e => ({
+                date: e.date,
+                startTime: e.startTime,
+                endTime: e.endTime,
+                hours: e.hours,
+                notes: e.notes
+              }))),
+              materials: sortByDate(materials.map(m => ({
+                date: m.date,
+                name: m.name,
+                quantity: m.quantity,
+                amount: m.amount
+              }))),
               totalMaterials,
               totalCost: laborCost + totalMaterials
             });
@@ -163,75 +187,87 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
     );
   }
 
-  const today = new Date().toLocaleDateString('is-IS', { day: 'numeric', month: 'short', year: 'numeric' });
+  const today = new Date().toLocaleDateString('is-IS');
 
   return (
     <div className="min-h-screen bg-gray-100 p-4">
-      <div className="max-w-lg mx-auto">
+      <div className="max-w-xl mx-auto">
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          {/* Header */}
-          <div className="bg-blue-600 text-white p-4">
-            <h1 className="text-xl font-bold">{publicProject.name || publicProject.client}</h1>
-            <p className="text-blue-100">{publicProject.client}</p>
-            <p className="text-blue-200 text-sm">{publicProject.address}</p>
+          {/* Invoice Header */}
+          <div className="bg-gray-800 text-white p-5">
+            <h1 className="text-2xl font-light tracking-widest mb-2">REIKNINGUR</h1>
+            <div className="text-sm opacity-90">Paulius Grigaliunas | Sími: 857-2335</div>
           </div>
 
-          {/* Content */}
-          <div className="p-4 space-y-4">
-            <div className="text-center text-gray-500 text-sm">
-              Uppfært: {today}
-            </div>
+          {/* Project Info */}
+          <div className="bg-gray-50 p-4 text-sm grid grid-cols-2 gap-2">
+            <span className="text-gray-500">Verkefni</span>
+            <span className="font-medium">{publicProject.name || '-'}</span>
+            <span className="text-gray-500">Viðskiptavinur</span>
+            <span className="font-medium">{publicProject.client}</span>
+            <span className="text-gray-500">Heimilisfang</span>
+            <span className="font-medium">{publicProject.address}</span>
+          </div>
 
-            {/* Work Hours */}
-            <div className="bg-blue-50 rounded-lg p-4">
-              <h3 className="font-semibold text-blue-800 mb-2">Vinnustundir</h3>
-              <p className="text-lg">
-                {publicProject.totalHours} klst × {formatCurrency(publicProject.hourlyRate)} =
-                <span className="font-bold ml-2">{formatCurrency(publicProject.laborCost)}</span>
-              </p>
-            </div>
-
-            {/* Materials */}
-            <div className="bg-orange-50 rounded-lg p-4">
-              <h3 className="font-semibold text-orange-800 mb-2">Efni</h3>
-              {publicProject.materials.length === 0 ? (
-                <p className="text-gray-500">Ekkert efni skráð</p>
-              ) : (
-                <div className="space-y-1">
-                  {publicProject.materials.map((m, idx) => (
-                    <div key={idx} className="flex justify-between text-sm">
-                      <span>{m.name} {m.quantity && `(${m.quantity})`}</span>
-                      <span>{formatCurrency(m.amount)}</span>
-                    </div>
-                  ))}
-                  <div className="border-t pt-2 mt-2 font-semibold flex justify-between">
-                    <span>Samtals efni:</span>
-                    <span>{formatCurrency(publicProject.totalMaterials)}</span>
+          {/* Work Hours Section */}
+          <div className="p-4 border-b">
+            <h2 className="text-xs font-semibold tracking-wider text-gray-500 mb-3">VINNUSTUNDIR</h2>
+            {publicProject.workEntries.length === 0 ? (
+              <p className="text-gray-400 text-sm">Engar vinnustundir skráðar</p>
+            ) : (
+              publicProject.workEntries.map((e, idx) => (
+                <div key={idx} className="py-2 text-sm border-b border-gray-100">
+                  <div className="flex items-start">
+                    <span className="text-gray-600 w-24">{formatDate(e.date)}</span>
+                    <span className="text-gray-600 w-28">{formatTime(e.startTime)} - {formatTime(e.endTime)}</span>
+                    <span className="font-medium ml-auto">{e.hours} klst</span>
                   </div>
+                  {e.notes && (
+                    <p className="text-xs text-gray-400 mt-1 italic pl-24">📝 {e.notes}</p>
+                  )}
                 </div>
-              )}
+              ))
+            )}
+            <div className="flex justify-between mt-3 pt-2 border-t-2 text-sm font-semibold">
+              <span>Samtals ({formatCurrency(publicProject.hourlyRate)}/klst)</span>
+              <span>{formatCurrency(publicProject.laborCost)}</span>
             </div>
+          </div>
 
-            {/* Total */}
-            <div className="bg-purple-100 rounded-lg p-4">
-              <div className="flex justify-between items-center">
-                <span className="text-lg font-bold text-purple-800">Samtals:</span>
-                <span className="text-2xl font-bold text-purple-800">{formatCurrency(publicProject.totalCost)}</span>
-              </div>
+          {/* Materials Section */}
+          <div className="p-4 border-b">
+            <h2 className="text-xs font-semibold tracking-wider text-gray-500 mb-3">EFNI</h2>
+            {publicProject.materials.length === 0 ? (
+              <p className="text-gray-400 text-sm">Ekkert efni skráð</p>
+            ) : (
+              publicProject.materials.map((m, idx) => (
+                <div key={idx} className="flex justify-between py-2 text-sm border-b border-gray-100">
+                  <span className="text-gray-600 w-24">{formatDate(m.date)}</span>
+                  <span className="flex-1 mx-3 truncate">{m.name} {m.quantity && <span className="text-gray-400">({m.quantity})</span>}</span>
+                  <span className="font-medium">{formatCurrency(m.amount)}</span>
+                </div>
+              ))
+            )}
+            <div className="flex justify-between mt-3 pt-2 border-t-2 text-sm font-semibold">
+              <span>Samtals efni</span>
+              <span>{formatCurrency(publicProject.totalMaterials)}</span>
             </div>
+          </div>
 
-            {/* Print Button - hidden when printing */}
+          {/* Total */}
+          <div className="bg-gray-800 text-white p-5 text-center">
+            <div className="text-xs tracking-widest opacity-80">HEILDARUPPHÆÐ</div>
+            <div className="text-3xl font-light mt-1">{formatCurrency(publicProject.totalCost)}</div>
+          </div>
+
+          {/* Print Button - hidden when printing */}
+          <div className="print-hidden p-4">
             <button
               onClick={() => window.print()}
-              className="print-hidden w-full bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 flex items-center justify-center gap-2"
+              className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 flex items-center justify-center gap-2 transition-colors"
             >
               🖨️ Prenta
             </button>
-          </div>
-
-          {/* Footer - hidden when printing */}
-          <div className="print-hidden border-t px-4 py-3 text-center text-gray-400 text-sm">
-            Darbo Žurnalas
           </div>
         </div>
       </div>
@@ -874,62 +910,97 @@ Síðast uppfært: ${today}`;
 
           {/* Invoice Modal */}
           {showInvoice && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-lg p-4 w-full max-w-lg max-h-[90vh] overflow-auto">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-semibold">Reikningsyfirlit</h3>
-                  <button onClick={() => setShowInvoice(false)} className="hover:bg-gray-100 p-1 rounded"><X size={20} /></button>
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+              <div className="bg-white rounded-lg w-full max-w-xl my-4">
+                {/* Modal Header */}
+                <div className="flex justify-between items-center p-4 border-b print-hidden">
+                  <h3 className="font-bold">Reikningur</h3>
+                  <button onClick={() => setShowInvoice(false)} className="hover:bg-gray-100 p-1 rounded"><X size={24} /></button>
                 </div>
-                <div className="space-y-4 text-sm">
-                  <div className="border-b pb-2">
-                    <p className="font-semibold text-lg">{selectedProject.name || selectedProject.client}</p>
-                    <p className="text-gray-600">{selectedProject.client}</p>
-                    <p className="text-gray-500">{selectedProject.address}</p>
-                  </div>
-                  
-                  <div>
-                    <p className="font-semibold mb-2 text-blue-700">Vinnustundir</p>
-                    <div className="bg-blue-50 p-2 rounded">
-                      <p>{summary.totalHours} klst × {formatCurrency(selectedProject.hourlyRate)} = <span className="font-bold">{formatCurrency(summary.laborCost)}</span></p>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <p className="font-semibold mb-2 text-orange-700">Efni</p>
-                    <div className="bg-orange-50 p-2 rounded space-y-1">
-                      {selectedProject.materials.length === 0 ? (
-                        <p className="text-gray-500">Ekkert efni skráð</p>
-                      ) : (
-                        selectedProject.materials.map(m => (
-                          <p key={m.id} className="flex justify-between">
-                            <span>{m.name} {m.quantity && `(${m.quantity})`}</span>
-                            <span>{formatCurrency(m.amount)}</span>
-                          </p>
-                        ))
-                      )}
-                      <p className="font-semibold pt-2 border-t flex justify-between">
-                        <span>Samtals efni:</span>
-                        <span>{formatCurrency(summary.totalMaterials)}</span>
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="border-t pt-3">
-                    <p className="text-xl font-bold flex justify-between text-purple-700">
-                      <span>Samtals:</span>
-                      <span>{formatCurrency(summary.totalCost)}</span>
-                    </p>
+
+                {/* Printable Invoice Content */}
+                <div className="max-h-[70vh] overflow-y-auto print:max-h-none print:overflow-visible">
+                  {/* Invoice Header */}
+                  <div className="bg-gray-800 text-white p-5">
+                    <h1 className="text-2xl font-light tracking-widest mb-2">REIKNINGUR</h1>
+                    <div className="text-sm opacity-90">Paulius Grigaliunas | Sími: 857-2335</div>
                   </div>
 
+                  {/* Project Info */}
+                  <div className="bg-gray-50 p-4 text-sm grid grid-cols-2 gap-2">
+                    <span className="text-gray-500">Verkefni</span>
+                    <span className="font-medium">{selectedProject.name || '-'}</span>
+                    <span className="text-gray-500">Viðskiptavinur</span>
+                    <span className="font-medium">{selectedProject.client}</span>
+                    <span className="text-gray-500">Heimilisfang</span>
+                    <span className="font-medium">{selectedProject.address}</span>
+                  </div>
+
+                  {/* Work Hours Section */}
+                  <div className="p-4 border-b">
+                    <h2 className="text-xs font-semibold tracking-wider text-gray-500 mb-3">VINNUSTUNDIR</h2>
+                    {selectedProject.workEntries.length === 0 ? (
+                      <p className="text-gray-400 text-sm">Engar vinnustundir skráðar</p>
+                    ) : (
+                      <>
+                        {sortByDate(selectedProject.workEntries).map(e => (
+                          <div key={e.id} className="py-2 text-sm border-b border-gray-100">
+                            <div className="flex items-start">
+                              <span className="text-gray-600 w-24">{formatDate(e.date)}</span>
+                              <span className="text-gray-600 w-28">{formatTime(e.startTime)} - {formatTime(e.endTime)}</span>
+                              <span className="font-medium ml-auto">{e.hours} klst</span>
+                            </div>
+                            {e.notes && (
+                              <p className="text-xs text-gray-400 mt-1 italic pl-24">📝 {e.notes}</p>
+                            )}
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    <div className="flex justify-between mt-3 pt-2 border-t-2 text-sm font-semibold">
+                      <span>Samtals ({formatCurrency(selectedProject.hourlyRate)}/klst)</span>
+                      <span>{formatCurrency(summary.laborCost)}</span>
+                    </div>
+                  </div>
+
+                  {/* Materials Section */}
+                  <div className="p-4 border-b">
+                    <h2 className="text-xs font-semibold tracking-wider text-gray-500 mb-3">EFNI</h2>
+                    {selectedProject.materials.length === 0 ? (
+                      <p className="text-gray-400 text-sm">Ekkert efni skráð</p>
+                    ) : (
+                      sortByDate(selectedProject.materials).map(m => (
+                        <div key={m.id} className="flex justify-between py-2 text-sm border-b border-gray-100">
+                          <span className="text-gray-600">{formatDate(m.date)}</span>
+                          <span className="flex-1 mx-3 truncate">{m.name} {m.quantity && <span className="text-gray-400">({m.quantity})</span>}</span>
+                          <span className="font-medium">{formatCurrency(m.amount)}</span>
+                        </div>
+                      ))
+                    )}
+                    <div className="flex justify-between mt-3 pt-2 border-t-2 text-sm font-semibold">
+                      <span>Samtals efni</span>
+                      <span>{formatCurrency(summary.totalMaterials)}</span>
+                    </div>
+                  </div>
+
+                  {/* Total */}
+                  <div className="bg-gray-800 text-white p-5 text-center">
+                    <div className="text-xs tracking-widest opacity-80">HEILDARUPPHÆÐ</div>
+                    <div className="text-3xl font-light mt-1">{formatCurrency(summary.totalCost)}</div>
+                  </div>
+                </div>
+
+                {/* Actions - hidden when printing */}
+                <div className="p-4 border-t print-hidden space-y-3">
                   {/* Share Link Section */}
-                  <div className="border-t pt-4 mt-4">
+                  <div className="bg-gray-50 rounded-lg p-3">
                     <p className="text-sm text-gray-600 mb-2">🔗 Deila með viðskiptavini:</p>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         value={`${window.location.origin}${window.location.pathname}?v=${selectedProject.id}`}
                         readOnly
-                        className="flex-1 border rounded px-2 py-1 text-xs bg-gray-50 text-gray-600"
+                        className="flex-1 border rounded px-2 py-1 text-xs bg-white text-gray-600"
                       />
                       <button
                         onClick={copyPublicUrl}
@@ -943,6 +1014,11 @@ Síðast uppfært: ${today}`;
                       </button>
                     </div>
                   </div>
+
+                  {/* Close Button */}
+                  <button onClick={() => setShowInvoice(false)} className="w-full bg-gray-200 hover:bg-gray-300 py-2 rounded-lg transition-colors">
+                    Loka
+                  </button>
                 </div>
               </div>
             </div>

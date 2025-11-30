@@ -40,4 +40,9 @@ body {
     min-height: auto !important;
     padding: 0 !important;
   }
+
+  /* Hide browser header/footer - instruct browser to not print headers */
+  @page {
+    margin: 10mm;
+  }
 }
