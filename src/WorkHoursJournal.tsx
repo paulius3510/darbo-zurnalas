@@ -599,11 +599,14 @@ export default function WorkHoursJournal() {
     await GoogleSheetsAPI.deleteMaterial(materialId);
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (!selectedProject || !importData.trim()) return;
     try {
       const data = JSON.parse(importData);
       let updated = { ...selectedProject };
+      const newMaterialsList: MaterialEntry[] = [];
+      const newWorkList: WorkEntry[] = [];
+
       if (data.efni && Array.isArray(data.efni)) {
         const newMaterials = data.efni.map((m: any) => ({
           id: generateId(),
@@ -612,6 +615,7 @@ export default function WorkHoursJournal() {
           quantity: m.magn || m.quantity || '',
           amount: Number(m.verd || m.amount) || 0
         }));
+        newMaterialsList.push(...newMaterials);
         updated.materials = [...updated.materials, ...newMaterials];
       }
       if (data.vinna && Array.isArray(data.vinna)) {
@@ -629,9 +633,34 @@ export default function WorkHoursJournal() {
             notes: w.athugasemd || w.notes || ''
           };
         });
+        newWorkList.push(...newWork);
         updated.workEntries = [...updated.workEntries, ...newWork];
       }
       updateProject(updated);
+
+      // Sync all new entries to Google Sheets
+      for (const material of newMaterialsList) {
+        await GoogleSheetsAPI.saveMaterial({
+          id: material.id,
+          projectId: selectedProject.id,
+          date: material.date,
+          name: material.name,
+          quantity: material.quantity,
+          amount: material.amount
+        });
+      }
+      for (const entry of newWorkList) {
+        await GoogleSheetsAPI.saveWorkEntry({
+          id: entry.id,
+          projectId: selectedProject.id,
+          date: entry.date,
+          startTime: entry.startTime,
+          endTime: entry.endTime,
+          hours: entry.hours,
+          notes: entry.notes
+        });
+      }
+
       setImportData('');
       setShowImport(false);
       alert('Gögn flutt inn!');
