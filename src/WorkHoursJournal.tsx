@@ -217,13 +217,12 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
             ) : (
               publicProject.workEntries.map((e, idx) => (
                 <div key={idx} className="py-2 text-sm border-b border-gray-100">
-                  <div className="flex items-start">
-                    <span className="text-gray-600 w-24">{formatDate(e.date)}</span>
-                    <span className="text-gray-600 w-28">{formatTime(e.startTime)} - {formatTime(e.endTime)}</span>
-                    <span className="font-medium ml-auto">{e.hours} klst</span>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">{formatDate(e.date)}</span>
+                    <span className="font-medium">{e.hours} klst</span>
                   </div>
                   {e.notes && (
-                    <p className="text-xs text-gray-400 mt-1 italic pl-24">📝 {e.notes}</p>
+                    <p className="text-xs text-gray-400 mt-1 italic">📝 {e.notes}</p>
                   )}
                 </div>
               ))
