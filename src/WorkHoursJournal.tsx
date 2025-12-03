@@ -49,7 +49,10 @@ const formatCurrency = (amount: number): string => {
 const formatDate = (dateStr: string): string => {
   if (!dateStr) return '';
   const date = new Date(dateStr);
-  return date.toLocaleDateString('is-IS');
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}.${month}.${year}`;
 };
 
 const formatTime = (timeStr: string): string => {
@@ -76,6 +79,19 @@ const groupByDate = (items: any[]) => {
   });
   // Sort groups by date descending (newest first)
   return Object.entries(groups).sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime());
+};
+
+// Group work entries by date and sum hours for invoice display
+const groupWorkEntriesByDate = (entries: { date: string; hours: number }[]) => {
+  const groups: { [key: string]: number } = {};
+  entries.forEach(entry => {
+    const date = entry.date || getTodayDate();
+    groups[date] = (groups[date] || 0) + entry.hours;
+  });
+  // Sort by date ascending (oldest first)
+  return Object.entries(groups)
+    .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+    .map(([date, hours]) => ({ date, hours }));
 };
 
 // Public Invoice View Component (for clients)
@@ -215,15 +231,12 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
             {publicProject.workEntries.length === 0 ? (
               <p className="text-gray-400 text-sm">Engar vinnustundir skráðar</p>
             ) : (
-              publicProject.workEntries.map((e, idx) => (
+              groupWorkEntriesByDate(publicProject.workEntries).map((entry, idx) => (
                 <div key={idx} className="py-2 text-sm border-b border-gray-100">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">{formatDate(e.date)}</span>
-                    <span className="font-medium">{e.hours} klst</span>
+                    <span className="text-gray-600">{formatDate(entry.date)}</span>
+                    <span className="font-medium">{entry.hours} klst</span>
                   </div>
-                  {e.notes && (
-                    <p className="text-xs text-gray-400 mt-1 italic">📝 {e.notes}</p>
-                  )}
                 </div>
               ))
             )}
@@ -949,16 +962,12 @@ export default function WorkHoursJournal() {
                       <p className="text-gray-400 text-sm">Engar vinnustundir skráðar</p>
                     ) : (
                       <>
-                        {sortByDate(selectedProject.workEntries).map(e => (
-                          <div key={e.id} className="py-2 text-sm border-b border-gray-100">
-                            <div className="flex items-start">
-                              <span className="text-gray-600 w-24">{formatDate(e.date)}</span>
-                              <span className="text-gray-600 w-28">{formatTime(e.startTime)} - {formatTime(e.endTime)}</span>
-                              <span className="font-medium ml-auto">{e.hours} klst</span>
+                        {groupWorkEntriesByDate(selectedProject.workEntries).map((entry, idx) => (
+                          <div key={idx} className="py-2 text-sm border-b border-gray-100">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">{formatDate(entry.date)}</span>
+                              <span className="font-medium">{entry.hours} klst</span>
                             </div>
-                            {e.notes && (
-                              <p className="text-xs text-gray-400 mt-1 italic pl-24">📝 {e.notes}</p>
-                            )}
                           </div>
                         ))}
                       </>
