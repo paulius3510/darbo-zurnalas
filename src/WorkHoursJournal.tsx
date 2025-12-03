@@ -228,7 +228,7 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
               ))
             )}
             <div className="flex justify-between mt-3 pt-2 border-t-2 text-sm font-semibold">
-              <span>Samtals ({formatCurrency(publicProject.hourlyRate)}/klst)</span>
+              <span>Samtals: {publicProject.totalHours} klst ({formatCurrency(publicProject.hourlyRate)}/klst)</span>
               <span>{formatCurrency(publicProject.laborCost)}</span>
             </div>
           </div>
@@ -971,7 +971,7 @@ export default function WorkHoursJournal() {
                       </>
                     )}
                     <div className="flex justify-between mt-3 pt-2 border-t-2 text-sm font-semibold">
-                      <span>Samtals ({formatCurrency(selectedProject.hourlyRate)}/klst)</span>
+                      <span>Samtals: {summary.totalHours} klst ({formatCurrency(selectedProject.hourlyRate)}/klst)</span>
                       <span>{formatCurrency(summary.laborCost)}</span>
                     </div>
                   </div>
