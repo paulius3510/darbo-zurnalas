@@ -717,19 +717,12 @@ export default function WorkHoursJournal() {
               </div>
             ) : (
               [...projects].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(project => {
-                const summary = getProjectSummary(project);
                 return (
                   <div key={project.id} onClick={() => { setSelectedProject(project); setCurrentView('project'); }} className="bg-white p-4 rounded-lg shadow-md border cursor-pointer hover:shadow-lg">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-semibold text-lg text-gray-800">{project.name || project.client}</h3>
-                        <p className="text-gray-600">{project.client}</p>
-                        <p className="text-gray-500 text-sm">{project.address}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-600">{summary.totalHours} klst</p>
-                        <p className="font-semibold text-blue-600">{formatCurrency(summary.totalCost)}</p>
-                      </div>
+                    <div>
+                      <h3 className="font-semibold text-lg text-gray-800">{project.name || project.client}</h3>
+                      <p className="text-gray-600">{project.client}</p>
+                      <p className="text-gray-500 text-sm">{project.address}</p>
                     </div>
                     <div className="flex gap-2 mt-3">
                       <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700">Virkt</span>
