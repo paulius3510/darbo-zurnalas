@@ -25,6 +25,7 @@ interface Project {
   client: string;
   address: string;
   hourlyRate: number;
+  paidAmount: number;
   status: string;
   workEntries: WorkEntry[];
   materials: MaterialEntry[];
@@ -101,6 +102,7 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
     client: string;
     address: string;
     hourlyRate: number;
+    paidAmount: number;
     totalHours: number;
     laborCost: number;
     workEntries: { date: string; startTime: string; endTime: string; hours: number; notes: string }[];
@@ -129,6 +131,7 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
               client: project.client,
               address: project.address,
               hourlyRate: project.hourlyRate,
+              paidAmount: project.paidAmount || 0,
               totalHours,
               laborCost,
               workEntries: sortByDate(workEntries.map(e => ({
@@ -272,6 +275,20 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
             <div className="text-3xl font-light mt-1">{formatCurrency(publicProject.totalCost)}</div>
           </div>
 
+          {/* Paid & Balance */}
+          {publicProject.paidAmount > 0 && (
+            <div className="p-4 border-t">
+              <div className="flex justify-between py-2 text-sm">
+                <span className="text-gray-600">Greitt</span>
+                <span className="font-medium text-green-600">- {formatCurrency(publicProject.paidAmount)}</span>
+              </div>
+              <div className="flex justify-between py-2 text-lg font-bold border-t-2 mt-2 pt-2">
+                <span>Eftirstöðvar</span>
+                <span className="text-blue-600">{formatCurrency(publicProject.totalCost - publicProject.paidAmount)}</span>
+              </div>
+            </div>
+          )}
+
           {/* Print Button - hidden when printing */}
           <div className="print-hidden p-4">
             <button
@@ -298,7 +315,7 @@ export default function WorkHoursJournal() {
   const [importData, setImportData] = useState('');
   const [showInvoice, setShowInvoice] = useState(false);
   const [showEditProject, setShowEditProject] = useState(false);
-  const [editProjectData, setEditProjectData] = useState({ name: '', client: '', address: '', hourlyRate: 0 });
+  const [editProjectData, setEditProjectData] = useState({ name: '', client: '', address: '', hourlyRate: 0, paidAmount: 0 });
   const [publicViewId, setPublicViewId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -322,6 +339,7 @@ export default function WorkHoursJournal() {
         // Convert flat structure to nested structure
         const projectsWithEntries = sheetsData.projects.map(p => ({
           ...p,
+          paidAmount: p.paidAmount || 0,
           workEntries: sheetsData.workEntries
             .filter(e => e.projectId === p.id)
             .map(e => ({
@@ -374,6 +392,7 @@ export default function WorkHoursJournal() {
     const project: Project = {
       id: generateId(),
       ...newProject,
+      paidAmount: 0,
       status: 'active',
       workEntries: [],
       materials: [],
@@ -422,7 +441,8 @@ export default function WorkHoursJournal() {
       name: selectedProject.name,
       client: selectedProject.client,
       address: selectedProject.address,
-      hourlyRate: selectedProject.hourlyRate
+      hourlyRate: selectedProject.hourlyRate,
+      paidAmount: selectedProject.paidAmount || 0
     });
     setShowEditProject(true);
   };
@@ -434,7 +454,8 @@ export default function WorkHoursJournal() {
       name: editProjectData.name,
       client: editProjectData.client,
       address: editProjectData.address,
-      hourlyRate: editProjectData.hourlyRate
+      hourlyRate: editProjectData.hourlyRate,
+      paidAmount: editProjectData.paidAmount
     };
     updateProject(updated);
     setShowEditProject(false);
@@ -446,6 +467,7 @@ export default function WorkHoursJournal() {
       client: updated.client,
       address: updated.address,
       hourlyRate: updated.hourlyRate,
+      paidAmount: updated.paidAmount,
       status: updated.status,
       createdAt: updated.createdAt
     });
@@ -905,6 +927,7 @@ export default function WorkHoursJournal() {
                   <input type="text" placeholder="Viðskiptavinur" value={editProjectData.client} onChange={e => setEditProjectData({...editProjectData, client: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
                   <input type="text" placeholder="Heimilisfang" value={editProjectData.address} onChange={e => setEditProjectData({...editProjectData, address: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
                   <input type="number" placeholder="Tímagjald" value={editProjectData.hourlyRate || ''} onChange={e => setEditProjectData({...editProjectData, hourlyRate: Number(e.target.value)})} className="w-full border rounded-lg px-3 py-2" />
+                  <input type="number" placeholder="Greitt (sumokėta)" value={editProjectData.paidAmount || ''} onChange={e => setEditProjectData({...editProjectData, paidAmount: Number(e.target.value)})} className="w-full border rounded-lg px-3 py-2" />
                 </div>
                 <button onClick={saveEditProject} className="w-full mt-4 bg-blue-600 text-white py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700">
                   <Check size={18} /> Vista
@@ -1003,6 +1026,20 @@ export default function WorkHoursJournal() {
                     <div className="text-xs tracking-widest opacity-80">HEILDARUPPHÆÐ</div>
                     <div className="text-3xl font-light mt-1">{formatCurrency(summary.totalCost)}</div>
                   </div>
+
+                  {/* Paid & Balance */}
+                  {(selectedProject.paidAmount || 0) > 0 && (
+                    <div className="p-4 border-t">
+                      <div className="flex justify-between py-2 text-sm">
+                        <span className="text-gray-600">Greitt</span>
+                        <span className="font-medium text-green-600">- {formatCurrency(selectedProject.paidAmount || 0)}</span>
+                      </div>
+                      <div className="flex justify-between py-2 text-lg font-bold border-t-2 mt-2 pt-2">
+                        <span>Eftirstöðvar</span>
+                        <span className="text-blue-600">{formatCurrency(summary.totalCost - (selectedProject.paidAmount || 0))}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Actions - hidden when printing */}

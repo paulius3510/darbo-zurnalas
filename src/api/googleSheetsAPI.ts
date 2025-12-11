@@ -20,6 +20,7 @@ export interface Project {
   client: string;
   address: string;
   hourlyRate: number;
+  paidAmount: number;
   status: string;
   createdAt: string;
 }

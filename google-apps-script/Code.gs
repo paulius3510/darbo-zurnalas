@@ -201,6 +201,7 @@ function saveProject(project) {
       project.client,
       project.address,
       project.hourlyRate,
+      project.paidAmount || 0,
       project.status,
       project.createdAt
     ]);
@@ -212,6 +213,7 @@ function saveProject(project) {
       project.client,
       project.address,
       project.hourlyRate,
+      project.paidAmount || 0,
       project.status,
       project.createdAt
     ]);
@@ -302,6 +304,7 @@ function updateProject(project) {
       project.client,
       project.address,
       project.hourlyRate,
+      project.paidAmount || 0,
       project.status,
       project.createdAt
     ]);
