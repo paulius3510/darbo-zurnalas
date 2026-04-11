@@ -227,9 +227,10 @@ export default function WorkHoursJournal() {
   const [importData, setImportData] = useState('');
   const [showInvoice, setShowInvoice] = useState(false);
   const [showEditProject, setShowEditProject] = useState(false);
-  const [editProjectData, setEditProjectData] = useState({ name: '', client: '', address: '', hourlyRate: 0, paidAmount: 0 });
+  const [editProjectData, setEditProjectData] = useState({ name: '', client: '', address: '', hourlyRate: 0, paidAmount: 0, status: 'active' });
   const [publicViewId, setPublicViewId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
 
   // Check for public view URL parameter
   useEffect(() => {
@@ -329,7 +330,8 @@ export default function WorkHoursJournal() {
       client: selectedProject.client,
       address: selectedProject.address,
       hourlyRate: selectedProject.hourlyRate,
-      paidAmount: selectedProject.paidAmount || 0
+      paidAmount: selectedProject.paidAmount || 0,
+      status: selectedProject.status || 'active'
     });
     setShowEditProject(true);
   };
@@ -342,7 +344,8 @@ export default function WorkHoursJournal() {
       client: editProjectData.client,
       address: editProjectData.address,
       hourlyRate: editProjectData.hourlyRate,
-      paidAmount: editProjectData.paidAmount
+      paidAmount: editProjectData.paidAmount,
+      status: editProjectData.status
     };
     updateProject(updated);
     setShowEditProject(false);
@@ -371,6 +374,7 @@ export default function WorkHoursJournal() {
       notes: ''
     };
     updateProject({ ...selectedProject, workEntries: [entry, ...selectedProject.workEntries] });
+    setEditingEntryId(entry.id);
 
     await FirebaseAPI.saveWorkEntry({
       ...entry,
@@ -427,6 +431,7 @@ export default function WorkHoursJournal() {
       amount: 0
     };
     updateProject({ ...selectedProject, materials: [material, ...selectedProject.materials] });
+    setEditingEntryId(material.id);
 
     await FirebaseAPI.saveMaterial({
       ...material,
@@ -623,8 +628,10 @@ export default function WorkHoursJournal() {
                     <p className="text-gray-500 text-sm">{project.address}</p>
                   </div>
                   <div className="flex gap-2 mt-3">
-                    <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700">Virkt</span>
-                    <button onClick={(e) => { e.stopPropagation(); deleteProject(project.id); }} className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200">Eyða</button>
+                    {project.status === 'completed'
+                      ? <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700">Lokið</span>
+                      : <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700">Virkt</span>
+                    }
                   </div>
                 </div>
               ))
@@ -723,15 +730,29 @@ export default function WorkHoursJournal() {
                     </div>
                     {(entries as WorkEntry[]).map(entry => (
                       <div key={entry.id} className="bg-white p-3 rounded-lg border shadow-sm ml-2">
-                        <div className="flex flex-wrap gap-2 items-center">
-                          <input type="date" value={entry.date} onChange={e => updateWorkEntry(entry.id, 'date', e.target.value)} className="border rounded px-2 py-1 text-sm" />
-                          <input type="time" value={entry.startTime} onChange={e => updateWorkEntry(entry.id, 'startTime', e.target.value)} className="border rounded px-2 py-1 text-sm w-24" />
-                          <span>-</span>
-                          <input type="time" value={entry.endTime} onChange={e => updateWorkEntry(entry.id, 'endTime', e.target.value)} className="border rounded px-2 py-1 text-sm w-24" />
-                          <span className="font-semibold text-blue-600">{entry.hours} klst</span>
-                          <button onClick={() => deleteWorkEntry(entry.id)} className="text-red-500 ml-auto hover:text-red-700"><Trash2 size={18} /></button>
-                        </div>
-                        <input type="text" placeholder="Athugasemdir..." value={entry.notes} onChange={e => updateWorkEntry(entry.id, 'notes', e.target.value)} onBlur={() => syncWorkEntryOnBlur(entry.id)} className="w-full border rounded px-2 py-1 text-sm mt-2" />
+                        {editingEntryId === entry.id ? (
+                          <>
+                            <div className="flex flex-wrap gap-2 items-center">
+                              <input type="date" value={entry.date} onChange={e => updateWorkEntry(entry.id, 'date', e.target.value)} className="border rounded px-2 py-1 text-sm" />
+                              <input type="time" value={entry.startTime} onChange={e => updateWorkEntry(entry.id, 'startTime', e.target.value)} className="border rounded px-2 py-1 text-sm w-24" />
+                              <span>-</span>
+                              <input type="time" value={entry.endTime} onChange={e => updateWorkEntry(entry.id, 'endTime', e.target.value)} className="border rounded px-2 py-1 text-sm w-24" />
+                              <span className="font-semibold text-blue-600">{entry.hours} klst</span>
+                              <button onClick={() => deleteWorkEntry(entry.id)} className="text-red-500 ml-auto hover:text-red-700"><Trash2 size={18} /></button>
+                            </div>
+                            <input type="text" placeholder="Athugasemdir..." value={entry.notes} onChange={e => updateWorkEntry(entry.id, 'notes', e.target.value)} onBlur={() => syncWorkEntryOnBlur(entry.id)} className="w-full border rounded px-2 py-1 text-sm mt-2" />
+                            <button onClick={() => { syncWorkEntryOnBlur(entry.id); setEditingEntryId(null); }} className="mt-2 text-sm text-blue-600 flex items-center gap-1 hover:text-blue-800">
+                              <Check size={14} /> Lokið
+                            </button>
+                          </>
+                        ) : (
+                          <div className="flex items-center gap-3 text-sm">
+                            <span className="text-gray-500">{entry.startTime || '--:--'} - {entry.endTime || '--:--'}</span>
+                            <span className="font-semibold text-blue-600">{entry.hours} klst</span>
+                            {entry.notes && <span className="text-gray-400 truncate flex-1">{entry.notes}</span>}
+                            <button onClick={() => setEditingEntryId(entry.id)} className="text-gray-400 hover:text-blue-600 ml-auto"><Edit2 size={16} /></button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -760,14 +781,27 @@ export default function WorkHoursJournal() {
                     </div>
                     {(materials as MaterialEntry[]).map(material => (
                       <div key={material.id} className="bg-white p-3 rounded-lg border shadow-sm ml-2">
-                        <div className="flex flex-wrap gap-2 items-center">
-                          <input type="date" value={material.date} onChange={e => updateMaterial(material.id, 'date', e.target.value)} className="border rounded px-2 py-1 text-sm" />
-                          <input type="text" placeholder="Heiti efnis" value={material.name} onChange={e => updateMaterial(material.id, 'name', e.target.value)} onBlur={() => syncMaterialOnBlur(material.id)} className="border rounded px-2 py-1 text-sm flex-1 min-w-32" />
-                          <input type="text" placeholder="Magn" value={material.quantity} onChange={e => updateMaterial(material.id, 'quantity', e.target.value)} onBlur={() => syncMaterialOnBlur(material.id)} className="border rounded px-2 py-1 text-sm w-20" />
-                          <input type="number" placeholder="Verð" value={material.amount || ''} onChange={e => updateMaterial(material.id, 'amount', e.target.value)} onBlur={() => syncMaterialOnBlur(material.id)} className="border rounded px-2 py-1 text-sm w-24" />
-                          <span className="text-orange-600 font-semibold">{formatCurrency(material.amount)}</span>
-                          <button onClick={() => deleteMaterial(material.id)} className="text-red-500 hover:text-red-700"><Trash2 size={18} /></button>
-                        </div>
+                        {editingEntryId === material.id ? (
+                          <>
+                            <div className="flex flex-wrap gap-2 items-center">
+                              <input type="date" value={material.date} onChange={e => updateMaterial(material.id, 'date', e.target.value)} className="border rounded px-2 py-1 text-sm" />
+                              <input type="text" placeholder="Heiti efnis" value={material.name} onChange={e => updateMaterial(material.id, 'name', e.target.value)} onBlur={() => syncMaterialOnBlur(material.id)} className="border rounded px-2 py-1 text-sm flex-1 min-w-32" />
+                              <input type="text" placeholder="Magn" value={material.quantity} onChange={e => updateMaterial(material.id, 'quantity', e.target.value)} onBlur={() => syncMaterialOnBlur(material.id)} className="border rounded px-2 py-1 text-sm w-20" />
+                              <input type="number" placeholder="Verð" value={material.amount || ''} onChange={e => updateMaterial(material.id, 'amount', e.target.value)} onBlur={() => syncMaterialOnBlur(material.id)} className="border rounded px-2 py-1 text-sm w-24" />
+                              <button onClick={() => deleteMaterial(material.id)} className="text-red-500 hover:text-red-700"><Trash2 size={18} /></button>
+                            </div>
+                            <button onClick={() => { syncMaterialOnBlur(material.id); setEditingEntryId(null); }} className="mt-2 text-sm text-blue-600 flex items-center gap-1 hover:text-blue-800">
+                              <Check size={14} /> Lokið
+                            </button>
+                          </>
+                        ) : (
+                          <div className="flex items-center gap-3 text-sm">
+                            <span className="flex-1 truncate">{material.name || 'Ónefnt efni'}</span>
+                            {material.quantity && <span className="text-gray-400">{material.quantity}</span>}
+                            <span className="text-orange-600 font-semibold">{formatCurrency(material.amount)}</span>
+                            <button onClick={() => setEditingEntryId(material.id)} className="text-gray-400 hover:text-orange-600"><Edit2 size={16} /></button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -790,9 +824,26 @@ export default function WorkHoursJournal() {
                   <input type="text" placeholder="Heimilisfang" value={editProjectData.address} onChange={e => setEditProjectData({...editProjectData, address: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
                   <input type="number" placeholder="Tímagjald" value={editProjectData.hourlyRate || ''} onChange={e => setEditProjectData({...editProjectData, hourlyRate: Number(e.target.value)})} className="w-full border rounded-lg px-3 py-2" />
                   <input type="number" placeholder="Greitt (sumokėta)" value={editProjectData.paidAmount || ''} onChange={e => setEditProjectData({...editProjectData, paidAmount: Number(e.target.value)})} className="w-full border rounded-lg px-3 py-2" />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setEditProjectData({...editProjectData, status: 'active'})}
+                      className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${editProjectData.status === 'active' ? 'bg-green-100 text-green-700 ring-2 ring-green-400' : 'bg-gray-100 text-gray-500'}`}
+                    >
+                      Virkt
+                    </button>
+                    <button
+                      onClick={() => setEditProjectData({...editProjectData, status: 'completed'})}
+                      className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${editProjectData.status === 'completed' ? 'bg-blue-100 text-blue-700 ring-2 ring-blue-400' : 'bg-gray-100 text-gray-500'}`}
+                    >
+                      Lokið
+                    </button>
+                  </div>
                 </div>
                 <button onClick={saveEditProject} className="w-full mt-4 bg-blue-600 text-white py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700">
                   <Check size={18} /> Vista
+                </button>
+                <button onClick={() => { setShowEditProject(false); deleteProject(selectedProject.id); }} className="w-full mt-2 text-red-500 text-sm py-2 hover:text-red-700 flex items-center justify-center gap-1">
+                  <Trash2 size={14} /> Eyða verkefni
                 </button>
               </div>
             </div>
