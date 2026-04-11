@@ -616,11 +616,18 @@ export default function WorkHoursJournal() {
                 <p>Engin verkefni skráð</p>
               </div>
             ) : (
-              [...projects].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(project => (
-                <div key={project.id} onClick={() => { setSelectedProject(project); setCurrentView('project'); }} className="bg-white p-4 rounded-lg shadow-md border cursor-pointer hover:shadow-lg">
+              [...projects]
+                .sort((a, b) => {
+                  if ((a.status === 'completed') !== (b.status === 'completed')) {
+                    return a.status === 'completed' ? 1 : -1;
+                  }
+                  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                })
+                .map(project => (
+                <div key={project.id} onClick={() => { setSelectedProject(project); setCurrentView('project'); }} className={`bg-white p-4 rounded-lg shadow-md border cursor-pointer hover:shadow-lg ${project.status === 'completed' ? 'opacity-60' : ''}`}>
                   <div>
                     <h3 className="font-semibold text-lg text-gray-800">{project.name || project.client}</h3>
-                    <p className="text-gray-600">{project.client}</p>
+                    {project.name && project.client && <p className="text-gray-600">{project.client}</p>}
                     <p className="text-gray-500 text-sm">{project.address}</p>
                   </div>
                   <div className="flex gap-2 mt-3">
