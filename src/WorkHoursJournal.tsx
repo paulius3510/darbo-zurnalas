@@ -85,14 +85,14 @@ const groupWorkEntriesByDate = (entries: { date: string; hours: number }[]) => {
 
 // Public Invoice View Component (for clients)
 function PublicInvoiceView({ projectId }: { projectId: string }) {
-  const [invoice, setInvoice] = useState<FirebaseAPI.PublicInvoice | null>(null);
+  const [data, setData] = useState<FirebaseAPI.PublicProjectData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    FirebaseAPI.getPublicInvoice(projectId).then(data => {
-      if (data) {
-        setInvoice(data);
+    FirebaseAPI.getPublicProjectData(projectId).then(result => {
+      if (result) {
+        setData(result);
       } else {
         setError('Verkefni fannst ekki');
       }
@@ -114,7 +114,7 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
     );
   }
 
-  if (error || !invoice) {
+  if (error || !data) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-6 max-w-md text-center">
@@ -124,6 +124,14 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
       </div>
     );
   }
+
+  const { project, workEntries, materials } = data;
+  const totalHours = workEntries.reduce((sum, e) => sum + e.hours, 0);
+  const totalMaterials = materials.reduce((sum, m) => sum + m.amount, 0);
+  const laborCost = totalHours * project.hourlyRate;
+  const totalCost = laborCost + totalMaterials;
+  const groupedWork = groupWorkEntriesByDate(workEntries);
+  const sortedMaterials = sortByDate(materials);
 
   return (
     <div className="min-h-screen bg-gray-100 p-4">
@@ -136,19 +144,19 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
 
           <div className="bg-gray-50 p-4 text-sm grid grid-cols-2 gap-2">
             <span className="text-gray-500">Verkefni</span>
-            <span className="font-medium">{invoice.name || '-'}</span>
+            <span className="font-medium">{project.name || '-'}</span>
             <span className="text-gray-500">Viðskiptavinur</span>
-            <span className="font-medium">{invoice.client}</span>
+            <span className="font-medium">{project.client}</span>
             <span className="text-gray-500">Heimilisfang</span>
-            <span className="font-medium">{invoice.address}</span>
+            <span className="font-medium">{project.address}</span>
           </div>
 
           <div className="p-4 border-b">
             <h2 className="text-xs font-semibold tracking-wider text-gray-500 mb-3">VINNUSTUNDIR</h2>
-            {invoice.workEntries.length === 0 ? (
+            {groupedWork.length === 0 ? (
               <p className="text-gray-400 text-sm">Engar vinnustundir skráðar</p>
             ) : (
-              invoice.workEntries.map((entry, idx) => (
+              groupedWork.map((entry, idx) => (
                 <div key={idx} className="py-2 text-sm border-b border-gray-100">
                   <div className="flex justify-between">
                     <span className="text-gray-600">{formatDate(entry.date)}</span>
@@ -158,17 +166,17 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
               ))
             )}
             <div className="flex justify-between mt-3 pt-2 border-t-2 text-sm font-semibold">
-              <span>Samtals: {invoice.totalHours} klst ({formatCurrency(invoice.hourlyRate)}/klst)</span>
-              <span>{formatCurrency(invoice.laborCost)}</span>
+              <span>Samtals: {totalHours} klst ({formatCurrency(project.hourlyRate)}/klst)</span>
+              <span>{formatCurrency(laborCost)}</span>
             </div>
           </div>
 
           <div className="p-4 border-b">
             <h2 className="text-xs font-semibold tracking-wider text-gray-500 mb-3">EFNI</h2>
-            {invoice.materials.length === 0 ? (
+            {sortedMaterials.length === 0 ? (
               <p className="text-gray-400 text-sm">Ekkert efni skráð</p>
             ) : (
-              invoice.materials.map((m, idx) => (
+              sortedMaterials.map((m, idx) => (
                 <div key={idx} className="flex justify-between py-2 text-sm border-b border-gray-100">
                   <span className="text-gray-600 w-24">{formatDate(m.date)}</span>
                   <span className="flex-1 mx-3 truncate">{m.name} {m.quantity && <span className="text-gray-400">({m.quantity})</span>}</span>
@@ -178,24 +186,24 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
             )}
             <div className="flex justify-between mt-3 pt-2 border-t-2 text-sm font-semibold">
               <span>Samtals efni</span>
-              <span>{formatCurrency(invoice.totalMaterials)}</span>
+              <span>{formatCurrency(totalMaterials)}</span>
             </div>
           </div>
 
           <div className="bg-gray-800 text-white p-5 text-center">
             <div className="text-xs tracking-widest opacity-80">HEILDARUPPHÆÐ</div>
-            <div className="text-3xl font-light mt-1">{formatCurrency(invoice.totalCost)}</div>
+            <div className="text-3xl font-light mt-1">{formatCurrency(totalCost)}</div>
           </div>
 
-          {invoice.paidAmount > 0 && (
+          {(project.paidAmount || 0) > 0 && (
             <div className="p-4 border-t">
               <div className="flex justify-between py-2 text-sm">
                 <span className="text-gray-600">Greitt</span>
-                <span className="font-medium text-green-600">- {formatCurrency(invoice.paidAmount)}</span>
+                <span className="font-medium text-green-600">- {formatCurrency(project.paidAmount)}</span>
               </div>
               <div className="flex justify-between py-2 text-lg font-bold border-t-2 mt-2 pt-2">
                 <span>Eftirstöðvar</span>
-                <span className="text-blue-600">{formatCurrency(invoice.totalCost - invoice.paidAmount)}</span>
+                <span className="text-blue-600">{formatCurrency(totalCost - project.paidAmount)}</span>
               </div>
             </div>
           )}
@@ -205,7 +213,7 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
               onClick={() => window.print()}
               className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 flex items-center justify-center gap-2 transition-colors"
             >
-              🖨️ Prenta
+              Prenta / Vista PDF
             </button>
           </div>
         </div>
@@ -528,20 +536,8 @@ export default function WorkHoursJournal() {
     }
   };
 
-  const publishAndCopyUrl = async () => {
+  const copyPublicUrl = () => {
     if (!selectedProject) return;
-
-    // Publish invoice snapshot to Firestore
-    const workEntries = groupWorkEntriesByDate(selectedProject.workEntries);
-    const materials = sortByDate(selectedProject.materials).map(m => ({
-      date: m.date,
-      name: m.name,
-      quantity: m.quantity,
-      amount: m.amount,
-    }));
-
-    await FirebaseAPI.publishInvoice(selectedProject, workEntries, materials);
-
     const url = `${window.location.origin}${window.location.pathname}?v=${selectedProject.id}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
@@ -956,7 +952,7 @@ export default function WorkHoursJournal() {
                         className="flex-1 border rounded px-2 py-1 text-xs bg-white text-gray-600"
                       />
                       <button
-                        onClick={publishAndCopyUrl}
+                        onClick={copyPublicUrl}
                         className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
                           copied
                             ? 'bg-green-100 text-green-700'

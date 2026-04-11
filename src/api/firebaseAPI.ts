@@ -43,19 +43,10 @@ export interface MaterialEntry {
   uid: string;
 }
 
-export interface PublicInvoice {
-  name: string;
-  client: string;
-  address: string;
-  hourlyRate: number;
-  paidAmount: number;
-  totalHours: number;
-  laborCost: number;
-  workEntries: { date: string; hours: number }[];
-  materials: { date: string; name: string; quantity: string; amount: number }[];
-  totalMaterials: number;
-  totalCost: number;
-  updatedAt: string;
+export interface PublicProjectData {
+  project: Project;
+  workEntries: WorkEntry[];
+  materials: MaterialEntry[];
 }
 
 export interface AllData {
@@ -80,9 +71,20 @@ export async function getAllData(uid: string): Promise<AllData> {
   };
 }
 
-export async function getPublicInvoice(projectId: string): Promise<PublicInvoice | null> {
-  const snap = await getDoc(doc(db, 'publicInvoices', projectId));
-  return snap.exists() ? (snap.data() as PublicInvoice) : null;
+export async function getPublicProjectData(projectId: string): Promise<PublicProjectData | null> {
+  const projectSnap = await getDoc(doc(db, 'projects', projectId));
+  if (!projectSnap.exists()) return null;
+
+  const [workSnap, materialsSnap] = await Promise.all([
+    getDocs(query(collection(db, 'workEntries'), where('projectId', '==', projectId))),
+    getDocs(query(collection(db, 'materials'), where('projectId', '==', projectId))),
+  ]);
+
+  return {
+    project: projectSnap.data() as Project,
+    workEntries: workSnap.docs.map((d) => d.data() as WorkEntry),
+    materials: materialsSnap.docs.map((d) => d.data() as MaterialEntry),
+  };
 }
 
 // --- Projects ---
@@ -115,31 +117,3 @@ export async function deleteMaterial(id: string): Promise<void> {
   await deleteDoc(doc(db, 'materials', id));
 }
 
-// --- Public Invoice ---
-
-export async function publishInvoice(
-  project: { name: string; client: string; address: string; hourlyRate: number; paidAmount: number; id: string },
-  workEntries: { date: string; hours: number }[],
-  materials: { date: string; name: string; quantity: string; amount: number }[]
-): Promise<void> {
-  const totalHours = workEntries.reduce((sum, e) => sum + e.hours, 0);
-  const totalMaterials = materials.reduce((sum, m) => sum + m.amount, 0);
-  const laborCost = totalHours * project.hourlyRate;
-
-  const invoice: PublicInvoice = {
-    name: project.name,
-    client: project.client,
-    address: project.address,
-    hourlyRate: project.hourlyRate,
-    paidAmount: project.paidAmount || 0,
-    totalHours,
-    laborCost,
-    workEntries,
-    materials,
-    totalMaterials,
-    totalCost: laborCost + totalMaterials,
-    updatedAt: new Date().toISOString(),
-  };
-
-  await setDoc(doc(db, 'publicInvoices', project.id), invoice);
-}
