@@ -238,6 +238,7 @@ export default function WorkHoursJournal() {
   const [editProjectData, setEditProjectData] = useState({ name: '', client: '', address: '', hourlyRate: 0, paidAmount: 0, status: 'active' });
   const [publicViewId, setPublicViewId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [dataLoading, setDataLoading] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
 
   // Check for public view URL parameter
@@ -261,6 +262,7 @@ export default function WorkHoursJournal() {
   // Load data when user is authenticated
   useEffect(() => {
     if (!user) return;
+    setDataLoading(true);
     FirebaseAPI.getAllData(user.uid).then(data => {
       const projectsWithEntries = data.projects.map(p => ({
         ...p,
@@ -273,6 +275,7 @@ export default function WorkHoursJournal() {
           .map(m => ({ id: m.id, date: m.date, name: m.name, quantity: m.quantity, amount: m.amount })),
       }));
       setProjects(projectsWithEntries);
+      setDataLoading(false);
     });
   }, [user]);
 
@@ -610,7 +613,12 @@ export default function WorkHoursJournal() {
           )}
 
           <div className="space-y-3">
-            {projects.length === 0 ? (
+            {dataLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3"></div>
+                <p className="text-gray-500">Hleður...</p>
+              </div>
+            ) : projects.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <FileText size={48} className="mx-auto mb-3 opacity-50" />
                 <p>Engin verkefni skráð</p>
