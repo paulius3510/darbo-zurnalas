@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, FileText, ArrowLeft, Clock, Package, Calculator, Download, X, Edit2, Check } from 'lucide-react';
-import * as GoogleSheetsAPI from './api/googleSheetsAPI';
+import { useState, useEffect } from 'react';
+import { Plus, Trash2, FileText, ArrowLeft, Clock, Package, Calculator, Download, X, Edit2, Check, LogOut } from 'lucide-react';
+import { signInWithPopup, onAuthStateChanged, signOut, User } from 'firebase/auth';
+import { auth, googleProvider } from './firebase';
+import * as FirebaseAPI from './api/firebaseAPI';
 
 interface WorkEntry {
   id: string;
@@ -56,17 +58,6 @@ const formatDate = (dateStr: string): string => {
   return `${day}.${month}.${year}`;
 };
 
-const formatTime = (timeStr: string): string => {
-  if (!timeStr) return '--:--';
-  // If it's an ISO string like "1899-12-30T09:46:08.000Z", extract time
-  if (timeStr.includes('T')) {
-    const date = new Date(timeStr);
-    return date.toLocaleTimeString('is-IS', { hour: '2-digit', minute: '2-digit', hour12: false });
-  }
-  // If it's already in HH:MM format, return as is
-  return timeStr;
-};
-
 const sortByDate = (items: any[]) => {
   return [...items].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 };
@@ -78,18 +69,15 @@ const groupByDate = (items: any[]) => {
     if (!groups[date]) groups[date] = [];
     groups[date].push(item);
   });
-  // Sort groups by date descending (newest first)
   return Object.entries(groups).sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime());
 };
 
-// Group work entries by date and sum hours for invoice display
 const groupWorkEntriesByDate = (entries: { date: string; hours: number }[]) => {
   const groups: { [key: string]: number } = {};
   entries.forEach(entry => {
     const date = entry.date || getTodayDate();
     groups[date] = (groups[date] || 0) + entry.hours;
   });
-  // Sort by date ascending (oldest first)
   return Object.entries(groups)
     .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
     .map(([date, hours]) => ({ date, hours }));
@@ -97,91 +85,22 @@ const groupWorkEntriesByDate = (entries: { date: string; hours: number }[]) => {
 
 // Public Invoice View Component (for clients)
 function PublicInvoiceView({ projectId }: { projectId: string }) {
-  const [publicProject, setPublicProject] = useState<{
-    name: string;
-    client: string;
-    address: string;
-    hourlyRate: number;
-    paidAmount: number;
-    totalHours: number;
-    laborCost: number;
-    workEntries: { date: string; startTime: string; endTime: string; hours: number; notes: string }[];
-    materials: { date: string; name: string; quantity: string; amount: number }[];
-    totalMaterials: number;
-    totalCost: number;
-  } | null>(null);
+  const [invoice, setInvoice] = useState<FirebaseAPI.PublicInvoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadPublicData = async () => {
-      try {
-        const data = await GoogleSheetsAPI.getAllData();
-        if (data && data.projects) {
-          const project = data.projects.find(p => p.id === projectId);
-          if (project) {
-            const workEntries = data.workEntries.filter(e => e.projectId === projectId);
-            const materials = data.materials.filter(m => m.projectId === projectId);
-            const totalHours = workEntries.reduce((sum, e) => sum + e.hours, 0);
-            const totalMaterials = materials.reduce((sum, m) => sum + m.amount, 0);
-            const laborCost = totalHours * project.hourlyRate;
-
-            setPublicProject({
-              name: project.name,
-              client: project.client,
-              address: project.address,
-              hourlyRate: project.hourlyRate,
-              paidAmount: project.paidAmount || 0,
-              totalHours,
-              laborCost,
-              workEntries: sortByDate(workEntries.map(e => ({
-                date: e.date,
-                startTime: e.startTime,
-                endTime: e.endTime,
-                hours: e.hours,
-                notes: e.notes
-              }))),
-              materials: sortByDate(materials.map(m => ({
-                date: m.date,
-                name: m.name,
-                quantity: m.quantity,
-                amount: m.amount
-              }))),
-              totalMaterials,
-              totalCost: laborCost + totalMaterials
-            });
-
-            // Update page title and meta tags for better link previews
-            const projectTitle = project.name || project.client;
-            document.title = `Reikningur - ${projectTitle}`;
-
-            // Update meta description
-            const metaDescription = document.querySelector('meta[name="description"]');
-            if (metaDescription) {
-              metaDescription.setAttribute('content', `Verkefnayfirlit fyrir ${project.client}`);
-            }
-
-            // Update Open Graph tags
-            const ogTitle = document.querySelector('meta[property="og:title"]');
-            if (ogTitle) {
-              ogTitle.setAttribute('content', `Reikningur - ${projectTitle}`);
-            }
-            const ogDescription = document.querySelector('meta[property="og:description"]');
-            if (ogDescription) {
-              ogDescription.setAttribute('content', `Verkefnayfirlit fyrir ${project.client}`);
-            }
-          } else {
-            setError('Verkefni fannst ekki');
-          }
-        } else {
-          setError('Gat ekki hlaðið gögnum');
-        }
-      } catch (e) {
-        setError('Villa við að hlaða gögnum');
+    FirebaseAPI.getPublicInvoice(projectId).then(data => {
+      if (data) {
+        setInvoice(data);
+      } else {
+        setError('Verkefni fannst ekki');
       }
       setLoading(false);
-    };
-    loadPublicData();
+    }).catch(() => {
+      setError('Villa við að hlaða gögnum');
+      setLoading(false);
+    });
   }, [projectId]);
 
   if (loading) {
@@ -195,7 +114,7 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
     );
   }
 
-  if (error || !publicProject) {
+  if (error || !invoice) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-6 max-w-md text-center">
@@ -206,35 +125,30 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
     );
   }
 
-  const today = new Date().toLocaleDateString('is-IS');
-
   return (
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="max-w-xl mx-auto">
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          {/* Invoice Header */}
           <div className="bg-gray-800 text-white p-5">
             <h1 className="text-2xl font-light tracking-widest mb-2">REIKNINGUR</h1>
             <div className="text-sm opacity-90">Paulius Grigaliunas | Sími: 857-2335</div>
           </div>
 
-          {/* Project Info */}
           <div className="bg-gray-50 p-4 text-sm grid grid-cols-2 gap-2">
             <span className="text-gray-500">Verkefni</span>
-            <span className="font-medium">{publicProject.name || '-'}</span>
+            <span className="font-medium">{invoice.name || '-'}</span>
             <span className="text-gray-500">Viðskiptavinur</span>
-            <span className="font-medium">{publicProject.client}</span>
+            <span className="font-medium">{invoice.client}</span>
             <span className="text-gray-500">Heimilisfang</span>
-            <span className="font-medium">{publicProject.address}</span>
+            <span className="font-medium">{invoice.address}</span>
           </div>
 
-          {/* Work Hours Section */}
           <div className="p-4 border-b">
             <h2 className="text-xs font-semibold tracking-wider text-gray-500 mb-3">VINNUSTUNDIR</h2>
-            {publicProject.workEntries.length === 0 ? (
+            {invoice.workEntries.length === 0 ? (
               <p className="text-gray-400 text-sm">Engar vinnustundir skráðar</p>
             ) : (
-              groupWorkEntriesByDate(publicProject.workEntries).map((entry, idx) => (
+              invoice.workEntries.map((entry, idx) => (
                 <div key={idx} className="py-2 text-sm border-b border-gray-100">
                   <div className="flex justify-between">
                     <span className="text-gray-600">{formatDate(entry.date)}</span>
@@ -244,18 +158,17 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
               ))
             )}
             <div className="flex justify-between mt-3 pt-2 border-t-2 text-sm font-semibold">
-              <span>Samtals: {publicProject.totalHours} klst ({formatCurrency(publicProject.hourlyRate)}/klst)</span>
-              <span>{formatCurrency(publicProject.laborCost)}</span>
+              <span>Samtals: {invoice.totalHours} klst ({formatCurrency(invoice.hourlyRate)}/klst)</span>
+              <span>{formatCurrency(invoice.laborCost)}</span>
             </div>
           </div>
 
-          {/* Materials Section */}
           <div className="p-4 border-b">
             <h2 className="text-xs font-semibold tracking-wider text-gray-500 mb-3">EFNI</h2>
-            {publicProject.materials.length === 0 ? (
+            {invoice.materials.length === 0 ? (
               <p className="text-gray-400 text-sm">Ekkert efni skráð</p>
             ) : (
-              publicProject.materials.map((m, idx) => (
+              invoice.materials.map((m, idx) => (
                 <div key={idx} className="flex justify-between py-2 text-sm border-b border-gray-100">
                   <span className="text-gray-600 w-24">{formatDate(m.date)}</span>
                   <span className="flex-1 mx-3 truncate">{m.name} {m.quantity && <span className="text-gray-400">({m.quantity})</span>}</span>
@@ -265,31 +178,28 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
             )}
             <div className="flex justify-between mt-3 pt-2 border-t-2 text-sm font-semibold">
               <span>Samtals efni</span>
-              <span>{formatCurrency(publicProject.totalMaterials)}</span>
+              <span>{formatCurrency(invoice.totalMaterials)}</span>
             </div>
           </div>
 
-          {/* Total */}
           <div className="bg-gray-800 text-white p-5 text-center">
             <div className="text-xs tracking-widest opacity-80">HEILDARUPPHÆÐ</div>
-            <div className="text-3xl font-light mt-1">{formatCurrency(publicProject.totalCost)}</div>
+            <div className="text-3xl font-light mt-1">{formatCurrency(invoice.totalCost)}</div>
           </div>
 
-          {/* Paid & Balance */}
-          {publicProject.paidAmount > 0 && (
+          {invoice.paidAmount > 0 && (
             <div className="p-4 border-t">
               <div className="flex justify-between py-2 text-sm">
                 <span className="text-gray-600">Greitt</span>
-                <span className="font-medium text-green-600">- {formatCurrency(publicProject.paidAmount)}</span>
+                <span className="font-medium text-green-600">- {formatCurrency(invoice.paidAmount)}</span>
               </div>
               <div className="flex justify-between py-2 text-lg font-bold border-t-2 mt-2 pt-2">
                 <span>Eftirstöðvar</span>
-                <span className="text-blue-600">{formatCurrency(publicProject.totalCost - publicProject.paidAmount)}</span>
+                <span className="text-blue-600">{formatCurrency(invoice.totalCost - invoice.paidAmount)}</span>
               </div>
             </div>
           )}
 
-          {/* Print Button - hidden when printing */}
           <div className="print-hidden p-4">
             <button
               onClick={() => window.print()}
@@ -305,6 +215,8 @@ function PublicInvoiceView({ projectId }: { projectId: string }) {
 }
 
 export default function WorkHoursJournal() {
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentView, setCurrentView] = useState<string>('list');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -328,57 +240,35 @@ export default function WorkHoursJournal() {
     }
   }, []);
 
-  // Load data on mount - first try Google Sheets, then localStorage
+  // Auth state listener
   useEffect(() => {
-    const loadData = async () => {
-      // Try to load from Google Sheets first
-      const sheetsData = await GoogleSheetsAPI.loadFromSheets();
-
-      if (sheetsData && sheetsData.projects && sheetsData.projects.length > 0) {
-        console.log('📥 Loaded data from Google Sheets');
-        // Convert flat structure to nested structure
-        const projectsWithEntries = sheetsData.projects.map(p => ({
-          ...p,
-          paidAmount: p.paidAmount || 0,
-          workEntries: sheetsData.workEntries
-            .filter(e => e.projectId === p.id)
-            .map(e => ({
-              id: e.id,
-              date: e.date,
-              startTime: e.startTime,
-              endTime: e.endTime,
-              hours: e.hours,
-              notes: e.notes
-            })),
-          materials: sheetsData.materials
-            .filter(m => m.projectId === p.id)
-            .map(m => ({
-              id: m.id,
-              date: m.date,
-              name: m.name,
-              quantity: m.quantity,
-              amount: m.amount
-            }))
-        }));
-        setProjects(projectsWithEntries);
-      } else {
-        // Fallback to localStorage
-        console.log('📥 Loading data from localStorage');
-        const saved = localStorage.getItem('verkefni_data');
-        if (saved) {
-          try { setProjects(JSON.parse(saved)); } catch (e) {}
-        }
-      }
-    };
-
-    loadData();
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      setAuthLoading(false);
+    });
+    return unsubscribe;
   }, []);
 
+  // Load data when user is authenticated
   useEffect(() => {
-    if (projects.length > 0) {
-      localStorage.setItem('verkefni_data', JSON.stringify(projects));
-    }
-  }, [projects]);
+    if (!user) return;
+    FirebaseAPI.getAllData(user.uid).then(data => {
+      const projectsWithEntries = data.projects.map(p => ({
+        ...p,
+        paidAmount: p.paidAmount || 0,
+        workEntries: data.workEntries
+          .filter(e => e.projectId === p.id)
+          .map(e => ({ id: e.id, date: e.date, startTime: e.startTime, endTime: e.endTime, hours: e.hours, notes: e.notes })),
+        materials: data.materials
+          .filter(m => m.projectId === p.id)
+          .map(m => ({ id: m.id, date: m.date, name: m.name, quantity: m.quantity, amount: m.amount })),
+      }));
+      setProjects(projectsWithEntries);
+    });
+  }, [user]);
+
+  const handleLogin = () => signInWithPopup(auth, googleProvider);
+  const handleLogout = () => signOut(auth);
 
   const getProjectSummary = (project: Project) => {
     const totalHours = project.workEntries.reduce((sum, e) => sum + e.hours, 0);
@@ -389,6 +279,7 @@ export default function WorkHoursJournal() {
 
   const addProject = async () => {
     if (!newProject.name && !newProject.client) return;
+    if (!user) return;
     const project: Project = {
       id: generateId(),
       ...newProject,
@@ -402,31 +293,27 @@ export default function WorkHoursJournal() {
     setNewProject({ name: '', client: '', address: '', hourlyRate: 0 });
     setShowNewProject(false);
 
-    // Sync to Google Sheets
-    await GoogleSheetsAPI.saveProject(project);
+    await FirebaseAPI.saveProject({ ...project, uid: user.uid });
   };
 
   const deleteProject = async (id: string) => {
-    if (confirm('Eyða verkefni?')) {
-      // Delete all work entries and materials for this project from Google Sheets
-      const project = projects.find(p => p.id === id);
-      if (project) {
-        for (const entry of project.workEntries) {
-          await GoogleSheetsAPI.deleteWorkEntry(entry.id);
-        }
-        for (const material of project.materials) {
-          await GoogleSheetsAPI.deleteMaterial(material.id);
-        }
-      }
+    if (!confirm('Eyða verkefni?')) return;
+    if (!user) return;
 
-      // Delete project from Google Sheets
-      await GoogleSheetsAPI.deleteProject(id);
+    const project = projects.find(p => p.id === id);
+    if (project) {
+      const deleteOps = [
+        ...project.workEntries.map(e => FirebaseAPI.deleteWorkEntry(e.id)),
+        ...project.materials.map(m => FirebaseAPI.deleteMaterial(m.id)),
+        FirebaseAPI.deleteProject(id),
+      ];
+      await Promise.all(deleteOps);
+    }
 
-      setProjects(projects.filter(p => p.id !== id));
-      if (selectedProject?.id === id) {
-        setSelectedProject(null);
-        setCurrentView('list');
-      }
+    setProjects(projects.filter(p => p.id !== id));
+    if (selectedProject?.id === id) {
+      setSelectedProject(null);
+      setCurrentView('list');
     }
   };
 
@@ -448,7 +335,7 @@ export default function WorkHoursJournal() {
   };
 
   const saveEditProject = async () => {
-    if (!selectedProject) return;
+    if (!selectedProject || !user) return;
     const updated = {
       ...selectedProject,
       name: editProjectData.name,
@@ -460,8 +347,7 @@ export default function WorkHoursJournal() {
     updateProject(updated);
     setShowEditProject(false);
 
-    // Sync to Google Sheets
-    await GoogleSheetsAPI.updateProject({
+    await FirebaseAPI.saveProject({
       id: updated.id,
       name: updated.name,
       client: updated.client,
@@ -469,12 +355,13 @@ export default function WorkHoursJournal() {
       hourlyRate: updated.hourlyRate,
       paidAmount: updated.paidAmount,
       status: updated.status,
-      createdAt: updated.createdAt
+      createdAt: updated.createdAt,
+      uid: user.uid,
     });
   };
 
   const addWorkEntry = async () => {
-    if (!selectedProject) return;
+    if (!selectedProject || !user) return;
     const entry: WorkEntry = {
       id: generateId(),
       date: getTodayDate(),
@@ -483,18 +370,12 @@ export default function WorkHoursJournal() {
       hours: 0,
       notes: ''
     };
-    // Add new entry at the beginning
     updateProject({ ...selectedProject, workEntries: [entry, ...selectedProject.workEntries] });
 
-    // Sync to Google Sheets
-    await GoogleSheetsAPI.saveWorkEntry({
-      id: entry.id,
+    await FirebaseAPI.saveWorkEntry({
+      ...entry,
       projectId: selectedProject.id,
-      date: entry.date,
-      startTime: entry.startTime,
-      endTime: entry.endTime,
-      hours: entry.hours,
-      notes: entry.notes
+      uid: user.uid,
     });
   };
 
@@ -512,53 +393,32 @@ export default function WorkHoursJournal() {
       return updated;
     });
 
-    const updatedProject = { ...selectedProject, workEntries: entries };
-    updateProject(updatedProject);
+    updateProject({ ...selectedProject, workEntries: entries });
 
-    // Sync to Google Sheets for date/time changes
     if (field === 'date' || field === 'startTime' || field === 'endTime') {
       const entry = entries.find(e => e.id === entryId);
-      if (entry) {
-        GoogleSheetsAPI.saveWorkEntry({
-          id: entry.id,
-          projectId: selectedProject.id,
-          date: entry.date,
-          startTime: entry.startTime,
-          endTime: entry.endTime,
-          hours: entry.hours,
-          notes: entry.notes
-        });
+      if (entry && user) {
+        FirebaseAPI.saveWorkEntry({ ...entry, projectId: selectedProject.id, uid: user.uid });
       }
     }
   };
 
-  // Sync work entry on blur (for text fields like notes)
   const syncWorkEntryOnBlur = (entryId: string) => {
-    if (!selectedProject) return;
+    if (!selectedProject || !user) return;
     const entry = selectedProject.workEntries.find(e => e.id === entryId);
     if (entry) {
-      GoogleSheetsAPI.saveWorkEntry({
-        id: entry.id,
-        projectId: selectedProject.id,
-        date: entry.date,
-        startTime: entry.startTime,
-        endTime: entry.endTime,
-        hours: entry.hours,
-        notes: entry.notes
-      });
+      FirebaseAPI.saveWorkEntry({ ...entry, projectId: selectedProject.id, uid: user.uid });
     }
   };
 
   const deleteWorkEntry = async (entryId: string) => {
     if (!selectedProject) return;
     updateProject({ ...selectedProject, workEntries: selectedProject.workEntries.filter(e => e.id !== entryId) });
-
-    // Sync to Google Sheets
-    await GoogleSheetsAPI.deleteWorkEntry(entryId);
+    await FirebaseAPI.deleteWorkEntry(entryId);
   };
 
   const addMaterial = async () => {
-    if (!selectedProject) return;
+    if (!selectedProject || !user) return;
     const material: MaterialEntry = {
       id: generateId(),
       date: getTodayDate(),
@@ -566,17 +426,12 @@ export default function WorkHoursJournal() {
       quantity: '',
       amount: 0
     };
-    // Add new entry at the beginning
     updateProject({ ...selectedProject, materials: [material, ...selectedProject.materials] });
 
-    // Sync to Google Sheets
-    await GoogleSheetsAPI.saveMaterial({
-      id: material.id,
+    await FirebaseAPI.saveMaterial({
+      ...material,
       projectId: selectedProject.id,
-      date: material.date,
-      name: material.name,
-      quantity: material.quantity,
-      amount: material.amount
+      uid: user.uid,
     });
   };
 
@@ -584,57 +439,37 @@ export default function WorkHoursJournal() {
     if (!selectedProject) return;
     const materials = selectedProject.materials.map(m => {
       if (m.id === materialId) {
-        const updated: MaterialEntry = { ...m, [field]: field === 'amount' ? Number(value) || 0 : value };
-        return updated;
+        return { ...m, [field]: field === 'amount' ? Number(value) || 0 : value };
       }
       return m;
     });
 
-    const updatedProject = { ...selectedProject, materials };
-    updateProject(updatedProject);
+    updateProject({ ...selectedProject, materials });
 
-    // Sync to Google Sheets on date change (other fields sync on blur)
     if (field === 'date') {
       const material = materials.find(m => m.id === materialId);
-      if (material) {
-        GoogleSheetsAPI.saveMaterial({
-          id: material.id,
-          projectId: selectedProject.id,
-          date: material.date,
-          name: material.name,
-          quantity: material.quantity,
-          amount: material.amount
-        });
+      if (material && user) {
+        FirebaseAPI.saveMaterial({ ...material, projectId: selectedProject.id, uid: user.uid });
       }
     }
   };
 
-  // Sync material on blur (for text/number fields)
   const syncMaterialOnBlur = (materialId: string) => {
-    if (!selectedProject) return;
+    if (!selectedProject || !user) return;
     const material = selectedProject.materials.find(m => m.id === materialId);
     if (material) {
-      GoogleSheetsAPI.saveMaterial({
-        id: material.id,
-        projectId: selectedProject.id,
-        date: material.date,
-        name: material.name,
-        quantity: material.quantity,
-        amount: material.amount
-      });
+      FirebaseAPI.saveMaterial({ ...material, projectId: selectedProject.id, uid: user.uid });
     }
   };
 
   const deleteMaterial = async (materialId: string) => {
     if (!selectedProject) return;
     updateProject({ ...selectedProject, materials: selectedProject.materials.filter(m => m.id !== materialId) });
-
-    // Sync to Google Sheets
-    await GoogleSheetsAPI.deleteMaterial(materialId);
+    await FirebaseAPI.deleteMaterial(materialId);
   };
 
   const handleImport = async () => {
-    if (!selectedProject || !importData.trim()) return;
+    if (!selectedProject || !importData.trim() || !user) return;
     try {
       const data = JSON.parse(importData);
       let updated = { ...selectedProject };
@@ -656,7 +491,6 @@ export default function WorkHoursJournal() {
         const newWork = data.vinna.map((w: any) => {
           const startTime = w.byrjun || w.start || '08:00';
           const endTime = w.lok || w.end || '16:00';
-          // Calculate hours from start/end times, or use provided value
           const hours = w.stundir || w.hours || calculateHours(startTime, endTime);
           return {
             id: generateId(),
@@ -672,28 +506,14 @@ export default function WorkHoursJournal() {
       }
       updateProject(updated);
 
-      // Sync all new entries to Google Sheets
-      for (const material of newMaterialsList) {
-        await GoogleSheetsAPI.saveMaterial({
-          id: material.id,
-          projectId: selectedProject.id,
-          date: material.date,
-          name: material.name,
-          quantity: material.quantity,
-          amount: material.amount
-        });
-      }
-      for (const entry of newWorkList) {
-        await GoogleSheetsAPI.saveWorkEntry({
-          id: entry.id,
-          projectId: selectedProject.id,
-          date: entry.date,
-          startTime: entry.startTime,
-          endTime: entry.endTime,
-          hours: entry.hours,
-          notes: entry.notes
-        });
-      }
+      await Promise.all([
+        ...newMaterialsList.map(m =>
+          FirebaseAPI.saveMaterial({ ...m, projectId: selectedProject.id, uid: user.uid })
+        ),
+        ...newWorkList.map(e =>
+          FirebaseAPI.saveWorkEntry({ ...e, projectId: selectedProject.id, uid: user.uid })
+        ),
+      ]);
 
       setImportData('');
       setShowImport(false);
@@ -703,8 +523,20 @@ export default function WorkHoursJournal() {
     }
   };
 
-  const copyPublicUrl = () => {
+  const publishAndCopyUrl = async () => {
     if (!selectedProject) return;
+
+    // Publish invoice snapshot to Firestore
+    const workEntries = groupWorkEntriesByDate(selectedProject.workEntries);
+    const materials = sortByDate(selectedProject.materials).map(m => ({
+      date: m.date,
+      name: m.name,
+      quantity: m.quantity,
+      amount: m.amount,
+    }));
+
+    await FirebaseAPI.publishInvoice(selectedProject, workEntries, materials);
+
     const url = `${window.location.origin}${window.location.pathname}?v=${selectedProject.id}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
@@ -716,6 +548,33 @@ export default function WorkHoursJournal() {
     return <PublicInvoiceView projectId={publicViewId} />;
   }
 
+  // Auth loading
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // Login screen
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-sm w-full text-center">
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Verkefnaskrá</h1>
+          <p className="text-gray-500 mb-6">Skráðu þig inn til að halda áfram</p>
+          <button
+            onClick={handleLogin}
+            className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-medium transition-colors"
+          >
+            Innskráning með Google
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Project List View
   if (currentView === 'list') {
     return (
@@ -723,9 +582,14 @@ export default function WorkHoursJournal() {
         <div className="max-w-4xl mx-auto space-y-4">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold text-gray-800">Verkefnaskrá</h1>
-            <button onClick={() => setShowNewProject(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg">
-              <Plus size={20} /> Nýtt verkefni
-            </button>
+            <div className="flex gap-2">
+              <button onClick={() => setShowNewProject(true)} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg">
+                <Plus size={20} /> Nýtt verkefni
+              </button>
+              <button onClick={handleLogout} className="p-2 text-gray-500 hover:bg-gray-200 rounded-lg" title="Útskrá">
+                <LogOut size={20} />
+              </button>
+            </div>
           </div>
 
           {showNewProject && (
@@ -751,21 +615,19 @@ export default function WorkHoursJournal() {
                 <p>Engin verkefni skráð</p>
               </div>
             ) : (
-              [...projects].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(project => {
-                return (
-                  <div key={project.id} onClick={() => { setSelectedProject(project); setCurrentView('project'); }} className="bg-white p-4 rounded-lg shadow-md border cursor-pointer hover:shadow-lg">
-                    <div>
-                      <h3 className="font-semibold text-lg text-gray-800">{project.name || project.client}</h3>
-                      <p className="text-gray-600">{project.client}</p>
-                      <p className="text-gray-500 text-sm">{project.address}</p>
-                    </div>
-                    <div className="flex gap-2 mt-3">
-                      <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700">Virkt</span>
-                      <button onClick={(e) => { e.stopPropagation(); deleteProject(project.id); }} className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200">Eyða</button>
-                    </div>
+              [...projects].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(project => (
+                <div key={project.id} onClick={() => { setSelectedProject(project); setCurrentView('project'); }} className="bg-white p-4 rounded-lg shadow-md border cursor-pointer hover:shadow-lg">
+                  <div>
+                    <h3 className="font-semibold text-lg text-gray-800">{project.name || project.client}</h3>
+                    <p className="text-gray-600">{project.client}</p>
+                    <p className="text-gray-500 text-sm">{project.address}</p>
                   </div>
-                );
-              })
+                  <div className="flex gap-2 mt-3">
+                    <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700">Virkt</span>
+                    <button onClick={(e) => { e.stopPropagation(); deleteProject(project.id); }} className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200">Eyða</button>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         </div>
@@ -954,21 +816,17 @@ export default function WorkHoursJournal() {
           {showInvoice && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
               <div className="bg-white rounded-lg w-full max-w-xl my-4">
-                {/* Modal Header */}
                 <div className="flex justify-between items-center p-4 border-b print-hidden">
                   <h3 className="font-bold">Reikningur</h3>
                   <button onClick={() => setShowInvoice(false)} className="hover:bg-gray-100 p-1 rounded"><X size={24} /></button>
                 </div>
 
-                {/* Printable Invoice Content */}
                 <div className="max-h-[70vh] overflow-y-auto print:max-h-none print:overflow-visible">
-                  {/* Invoice Header */}
                   <div className="bg-gray-800 text-white p-5">
                     <h1 className="text-2xl font-light tracking-widest mb-2">REIKNINGUR</h1>
                     <div className="text-sm opacity-90">Paulius Grigaliunas | Sími: 857-2335</div>
                   </div>
 
-                  {/* Project Info */}
                   <div className="bg-gray-50 p-4 text-sm grid grid-cols-2 gap-2">
                     <span className="text-gray-500">Verkefni</span>
                     <span className="font-medium">{selectedProject.name || '-'}</span>
@@ -978,22 +836,19 @@ export default function WorkHoursJournal() {
                     <span className="font-medium">{selectedProject.address}</span>
                   </div>
 
-                  {/* Work Hours Section */}
                   <div className="p-4 border-b">
                     <h2 className="text-xs font-semibold tracking-wider text-gray-500 mb-3">VINNUSTUNDIR</h2>
                     {selectedProject.workEntries.length === 0 ? (
                       <p className="text-gray-400 text-sm">Engar vinnustundir skráðar</p>
                     ) : (
-                      <>
-                        {groupWorkEntriesByDate(selectedProject.workEntries).map((entry, idx) => (
-                          <div key={idx} className="py-2 text-sm border-b border-gray-100">
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">{formatDate(entry.date)}</span>
-                              <span className="font-medium">{entry.hours} klst</span>
-                            </div>
+                      groupWorkEntriesByDate(selectedProject.workEntries).map((entry, idx) => (
+                        <div key={idx} className="py-2 text-sm border-b border-gray-100">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">{formatDate(entry.date)}</span>
+                            <span className="font-medium">{entry.hours} klst</span>
                           </div>
-                        ))}
-                      </>
+                        </div>
+                      ))
                     )}
                     <div className="flex justify-between mt-3 pt-2 border-t-2 text-sm font-semibold">
                       <span>Samtals: {summary.totalHours} klst ({formatCurrency(selectedProject.hourlyRate)}/klst)</span>
@@ -1001,7 +856,6 @@ export default function WorkHoursJournal() {
                     </div>
                   </div>
 
-                  {/* Materials Section */}
                   <div className="p-4 border-b">
                     <h2 className="text-xs font-semibold tracking-wider text-gray-500 mb-3">EFNI</h2>
                     {selectedProject.materials.length === 0 ? (
@@ -1021,13 +875,11 @@ export default function WorkHoursJournal() {
                     </div>
                   </div>
 
-                  {/* Total */}
                   <div className="bg-gray-800 text-white p-5 text-center">
                     <div className="text-xs tracking-widest opacity-80">HEILDARUPPHÆÐ</div>
                     <div className="text-3xl font-light mt-1">{formatCurrency(summary.totalCost)}</div>
                   </div>
 
-                  {/* Paid & Balance */}
                   {(selectedProject.paidAmount || 0) > 0 && (
                     <div className="p-4 border-t">
                       <div className="flex justify-between py-2 text-sm">
@@ -1042,11 +894,9 @@ export default function WorkHoursJournal() {
                   )}
                 </div>
 
-                {/* Actions - hidden when printing */}
                 <div className="p-4 border-t print-hidden space-y-3">
-                  {/* Share Link Section */}
                   <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-sm text-gray-600 mb-2">🔗 Deila með viðskiptavini:</p>
+                    <p className="text-sm text-gray-600 mb-2">Deila með viðskiptavini:</p>
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -1055,19 +905,18 @@ export default function WorkHoursJournal() {
                         className="flex-1 border rounded px-2 py-1 text-xs bg-white text-gray-600"
                       />
                       <button
-                        onClick={copyPublicUrl}
+                        onClick={publishAndCopyUrl}
                         className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
                           copied
                             ? 'bg-green-100 text-green-700'
                             : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                         }`}
                       >
-                        {copied ? '✓ Afritað!' : '📋 Afrita'}
+                        {copied ? 'Afritað!' : 'Afrita'}
                       </button>
                     </div>
                   </div>
 
-                  {/* Close Button */}
                   <button onClick={() => setShowInvoice(false)} className="w-full bg-gray-200 hover:bg-gray-300 py-2 rounded-lg transition-colors">
                     Loka
                   </button>
