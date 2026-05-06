@@ -18,6 +18,7 @@ export interface Project {
   hourlyRate: number;
   paidAmount: number;
   status: string;
+  isPublic: boolean;
   createdAt: string;
   uid: string;
 }

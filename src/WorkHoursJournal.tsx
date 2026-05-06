@@ -29,6 +29,7 @@ interface Project {
   hourlyRate: number;
   paidAmount: number;
   status: string;
+  isPublic: boolean;
   workEntries: WorkEntry[];
   materials: MaterialEntry[];
   createdAt: string;
@@ -235,7 +236,7 @@ export default function WorkHoursJournal() {
   const [importData, setImportData] = useState('');
   const [showInvoice, setShowInvoice] = useState(false);
   const [showEditProject, setShowEditProject] = useState(false);
-  const [editProjectData, setEditProjectData] = useState({ name: '', client: '', address: '', hourlyRate: 0, paidAmount: 0, status: 'active' });
+  const [editProjectData, setEditProjectData] = useState({ name: '', client: '', address: '', hourlyRate: 0, paidAmount: 0, status: 'active', isPublic: false });
   const [publicViewId, setPublicViewId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
@@ -267,6 +268,7 @@ export default function WorkHoursJournal() {
       const projectsWithEntries = data.projects.map(p => ({
         ...p,
         paidAmount: p.paidAmount || 0,
+        isPublic: p.isPublic === true,
         workEntries: data.workEntries
           .filter(e => e.projectId === p.id)
           .map(e => ({ id: e.id, date: e.date, startTime: e.startTime, endTime: e.endTime, hours: e.hours, notes: e.notes })),
@@ -297,6 +299,7 @@ export default function WorkHoursJournal() {
       ...newProject,
       paidAmount: 0,
       status: 'active',
+      isPublic: false,
       workEntries: [],
       materials: [],
       createdAt: new Date().toISOString()
@@ -342,7 +345,8 @@ export default function WorkHoursJournal() {
       address: selectedProject.address,
       hourlyRate: selectedProject.hourlyRate,
       paidAmount: selectedProject.paidAmount || 0,
-      status: selectedProject.status || 'active'
+      status: selectedProject.status || 'active',
+      isPublic: selectedProject.isPublic === true
     });
     setShowEditProject(true);
   };
@@ -356,7 +360,8 @@ export default function WorkHoursJournal() {
       address: editProjectData.address,
       hourlyRate: editProjectData.hourlyRate,
       paidAmount: editProjectData.paidAmount,
-      status: editProjectData.status
+      status: editProjectData.status,
+      isPublic: editProjectData.isPublic
     };
     updateProject(updated);
     setShowEditProject(false);
@@ -369,6 +374,7 @@ export default function WorkHoursJournal() {
       hourlyRate: updated.hourlyRate,
       paidAmount: updated.paidAmount,
       status: updated.status,
+      isPublic: updated.isPublic,
       createdAt: updated.createdAt,
       uid: user.uid,
     });
@@ -849,6 +855,25 @@ export default function WorkHoursJournal() {
                       Lokið
                     </button>
                   </div>
+
+                  <div className="border-t pt-3">
+                    <label className="flex items-center justify-between cursor-pointer">
+                      <div>
+                        <div className="font-medium text-sm">Opinber tengill</div>
+                        <div className="text-xs text-gray-500">
+                          {editProjectData.isPublic
+                            ? 'Viðskiptavinur getur skoðað reikninginn með tengli'
+                            : 'Aðeins þú sérð verkefnið'}
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={editProjectData.isPublic}
+                        onChange={e => setEditProjectData({...editProjectData, isPublic: e.target.checked})}
+                        className="w-5 h-5 cursor-pointer"
+                      />
+                    </label>
+                  </div>
                 </div>
                 <button onClick={saveEditProject} className="w-full mt-4 bg-blue-600 text-white py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700">
                   <Check size={18} /> Vista
@@ -957,27 +982,33 @@ export default function WorkHoursJournal() {
                 </div>
 
                 <div className="p-4 border-t print-hidden space-y-3">
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-sm text-gray-600 mb-2">Deila með viðskiptavini:</p>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={`${window.location.origin}${window.location.pathname}?v=${selectedProject.id}`}
-                        readOnly
-                        className="flex-1 border rounded px-2 py-1 text-xs bg-white text-gray-600"
-                      />
-                      <button
-                        onClick={copyPublicUrl}
-                        className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                          copied
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                        }`}
-                      >
-                        {copied ? 'Afritað!' : 'Afrita'}
-                      </button>
+                  {selectedProject.isPublic ? (
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-sm text-gray-600 mb-2">Deila með viðskiptavini:</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={`${window.location.origin}${window.location.pathname}?v=${selectedProject.id}`}
+                          readOnly
+                          className="flex-1 border rounded px-2 py-1 text-xs bg-white text-gray-600"
+                        />
+                        <button
+                          onClick={copyPublicUrl}
+                          className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                            copied
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                          }`}
+                        >
+                          {copied ? 'Afritað!' : 'Afrita'}
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                      Til að deila reikningi með viðskiptavini, kveiktu á <strong>Opinber tengill</strong> í stillingum verkefnis.
+                    </div>
+                  )}
 
                   <button onClick={() => setShowInvoice(false)} className="w-full bg-gray-200 hover:bg-gray-300 py-2 rounded-lg transition-colors">
                     Loka
