@@ -31,3 +31,9 @@ dist-ssr
 # Build artifacts
 build/
 .cache/
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
