@@ -10,10 +10,10 @@ Darbo valandų ir medžiagų sekimo PWA aplikacija plytelių klojimo verslui.
 
 - Projektų valdymas (klientai, adresai, valandiniai įkainiai)
 - Darbo valandų sekimas (data, pradžia, pabaiga, pastabos)
-- Medžiagų/efnių sekimas (data, pavadinimas, kiekis, kaina)
+- Medžiagų sekimas (data, pavadinimas, kiekis, kaina)
 - JSON importo funkcija
 - Profesionalus Reikningur su išsamia informacija
-- Public Invoice nuoroda klientui (dalintis per SMS/email)
+- Public Invoice nuoroda klientui per `isPublic` jungiklį (dalintis per SMS/email)
 - PWA support (veikia offline, galima įdiegti telefone)
 - Google Auth prisijungimas
 - Firebase Firestore duomenų saugojimas su offline palaikymu
@@ -37,6 +37,13 @@ npm install
 npm run dev
 ```
 
+Pirmą kartą diegiant Firebase rules ar indexes — prisijunk prie Firebase CLI ir naudok deploy komandas:
+
+```bash
+npx firebase login
+npm run deploy:rules
+```
+
 ## Firebase Setup
 
 1. Sukurti Firebase projektą: https://console.firebase.google.com
@@ -53,7 +60,13 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=...
 VITE_FIREBASE_APP_ID=...
 ```
 
-5. Nustatyti Firestore security rules (žr. `firestore.rules`)
+5. Nustatyti Firestore security rules — failas `firestore.rules` deploy'inamas per Firebase CLI:
+
+   ```bash
+   npm run deploy:rules
+   ```
+
+   Nereikia kopijuoti rankomis į Firebase Console.
 
 ## PWA Installation
 
@@ -71,7 +84,10 @@ VITE_FIREBASE_APP_ID=...
 ```
 darbo-zurnalas/
 ├── index.html
+├── firebase.json
+├── .firebaserc
 ├── firestore.rules
+├── firestore.indexes.json
 ├── src/
 │   ├── main.tsx
 │   ├── App.tsx
@@ -83,7 +99,7 @@ darbo-zurnalas/
 ├── public/
 │   ├── manifest.json
 │   ├── sw.js
-│   ├── icon.svg
+│   ├── favicon.png
 │   └── icons/
 ```
 
