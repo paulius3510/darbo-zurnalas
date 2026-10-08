@@ -9,41 +9,20 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { toMaterialDoc, toProjectDoc, toWorkEntryDoc } from './documents';
+import {
+  toMaterialDoc,
+  toProjectDoc,
+  toWorkEntryDoc,
+  type MaterialDoc,
+  type ProjectDoc,
+  type WorkEntryDoc,
+} from './documents';
 
-export interface Project {
-  id: string;
-  name: string;
-  client: string;
-  address: string;
-  hourlyRate: number;
-  paidAmount: number;
-  status: string;
-  isPublic: boolean;
-  createdAt: string;
-  uid: string;
-}
-
-export interface WorkEntry {
-  id: string;
-  projectId: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  hours: number;
-  notes: string;
-  uid: string;
-}
-
-export interface MaterialEntry {
-  id: string;
-  projectId: string;
-  date: string;
-  name: string;
-  quantity: string;
-  amount: number;
-  uid: string;
-}
+// Firestore document shapes live in documents.ts (shared with the mappers
+// and mirrored by firestore.rules); these aliases keep the public API names.
+export type Project = ProjectDoc;
+export type WorkEntry = WorkEntryDoc;
+export type MaterialEntry = MaterialDoc;
 
 export interface PublicProjectData {
   project: Project;
@@ -92,7 +71,7 @@ export async function getPublicProjectData(projectId: string): Promise<PublicPro
 // --- Projects ---
 
 export async function saveProject(project: Project): Promise<void> {
-  await setDoc(doc(db, 'projects', project.id), toProjectDoc(project as unknown as Record<string, unknown>));
+  await setDoc(doc(db, 'projects', project.id), toProjectDoc(project));
 }
 
 export async function deleteProject(id: string): Promise<void> {
@@ -102,7 +81,7 @@ export async function deleteProject(id: string): Promise<void> {
 // --- Work Entries ---
 
 export async function saveWorkEntry(entry: WorkEntry): Promise<void> {
-  await setDoc(doc(db, 'workEntries', entry.id), toWorkEntryDoc(entry as unknown as Record<string, unknown>));
+  await setDoc(doc(db, 'workEntries', entry.id), toWorkEntryDoc(entry));
 }
 
 export async function deleteWorkEntry(id: string): Promise<void> {
@@ -112,7 +91,7 @@ export async function deleteWorkEntry(id: string): Promise<void> {
 // --- Materials ---
 
 export async function saveMaterial(material: MaterialEntry): Promise<void> {
-  await setDoc(doc(db, 'materials', material.id), toMaterialDoc(material as unknown as Record<string, unknown>));
+  await setDoc(doc(db, 'materials', material.id), toMaterialDoc(material));
 }
 
 export async function deleteMaterial(id: string): Promise<void> {

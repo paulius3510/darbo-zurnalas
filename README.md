@@ -11,7 +11,7 @@ Darbo valandų ir medžiagų sekimo PWA aplikacija plytelių klojimo verslui.
 - Projektų valdymas (klientai, adresai, valandiniai įkainiai)
 - Darbo valandų sekimas (data, pradžia, pabaiga, pastabos)
 - Medžiagų sekimas (data, pavadinimas, kiekis, kaina)
-- JSON importo funkcija
+- JSON importo funkcija (šablonas Claude AI pagalbai: `CLAUDE_IMPORT_TEMPLATE.md`)
 - Profesionalus Reikningur su išsamia informacija
 - Public Invoice nuoroda klientui per `isPublic` jungiklį (dalintis per SMS/email)
 - PWA support (veikia offline, galima įdiegti telefone)
@@ -49,16 +49,8 @@ npm run deploy:rules
 1. Sukurti Firebase projektą: https://console.firebase.google.com
 2. Įjungti Authentication (Google provider)
 3. Sukurti Firestore Database
-4. Sukurti `.env` failą su Firebase config:
-
-```env
-VITE_FIREBASE_API_KEY=...
-VITE_FIREBASE_AUTH_DOMAIN=...
-VITE_FIREBASE_PROJECT_ID=...
-VITE_FIREBASE_STORAGE_BUCKET=...
-VITE_FIREBASE_MESSAGING_SENDER_ID=...
-VITE_FIREBASE_APP_ID=...
-```
+4. Nukopijuoti `.env.example` į `.env` ir užpildyti reikšmes iš Firebase
+   Console (Project settings → General → Your apps).
 
 5. Nustatyti Firestore security rules — failas `firestore.rules` deploy'inamas per Firebase CLI:
 
@@ -84,27 +76,7 @@ VITE_FIREBASE_APP_ID=...
 
 ## Projekto Struktūra
 
-```
-darbo-zurnalas/
-├── index.html
-├── firebase.json
-├── .firebaserc
-├── firestore.rules
-├── firestore.indexes.json
-├── src/
-│   ├── main.tsx
-│   ├── App.tsx
-│   ├── WorkHoursJournal.tsx
-│   ├── firebase.ts
-│   ├── index.css
-│   └── api/
-│       └── firebaseAPI.ts
-├── public/
-│   ├── manifest.json
-│   ├── sw.js
-│   ├── favicon.png
-│   └── icons/
-```
+Failų paskirtis ir architektūra aprašyta `CLAUDE.md` (skyrius „Architecture“).
 
 ## Kalba ir Valiuta
 

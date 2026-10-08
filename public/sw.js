@@ -1,8 +1,7 @@
-const CACHE_NAME = 'darbo-zurnalas-v4';
+const CACHE_NAME = 'darbo-zurnalas-v5';
 const urlsToCache = [
   '/darbo-zurnalas/',
-  '/darbo-zurnalas/index.html',
-  '/darbo-zurnalas/icon.svg'
+  '/darbo-zurnalas/index.html'
 ];
 
 // Install event - cache important assets

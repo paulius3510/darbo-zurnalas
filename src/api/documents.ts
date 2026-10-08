@@ -3,22 +3,20 @@
 // validWorkEntry / validMaterial): taisyklės atmeta papildomus laukus ir
 // neteisingus tipus, todėl viskas, kas įrašoma, pereina per šias funkcijas.
 
-export type ProjectStatus = 'active' | 'completed';
-
-export interface ProjectDoc {
+export type ProjectDoc = {
   id: string;
   name: string;
   client: string;
   address: string;
   hourlyRate: number;
   paidAmount: number;
-  status: ProjectStatus;
+  status: string; // rules allow only 'active' | 'completed'; toProjectDoc normalizes
   isPublic: boolean;
   createdAt: string;
   uid: string;
-}
+};
 
-export interface WorkEntryDoc {
+export type WorkEntryDoc = {
   id: string;
   projectId: string;
   date: string;
@@ -27,9 +25,9 @@ export interface WorkEntryDoc {
   hours: number;
   notes: string;
   uid: string;
-}
+};
 
-export interface MaterialDoc {
+export type MaterialDoc = {
   id: string;
   projectId: string;
   date: string;
@@ -37,7 +35,7 @@ export interface MaterialDoc {
   quantity: string;
   amount: number;
   uid: string;
-}
+};
 
 const str = (v: unknown): string => (v === undefined || v === null ? '' : String(v));
 const num = (v: unknown): number => {

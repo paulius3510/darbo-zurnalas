@@ -33,13 +33,11 @@ src/WorkHoursJournal.tsx  ~1000-line monolith: list view, project detail,
                           public invoice view, all modals. Intentionally
                           single-file for now; do NOT split unless asked.
 src/firebase.ts           Firebase init + Firestore cache configuration
-src/api/firebaseAPI.ts    sole CRUD wrapper around Firestore; type
-                          definitions for Project / WorkEntry /
-                          MaterialEntry / PublicProjectData live here
-src/api/documents.ts      pure mappers (toProjectDoc / toWorkEntryDoc /
+src/api/firebaseAPI.ts    sole CRUD wrapper around Firestore
+src/api/documents.ts      the three Firestore document types plus pure
+                          mappers (toProjectDoc / toWorkEntryDoc /
                           toMaterialDoc) that every save goes through;
-                          they whitelist fields and coerce types so writes
-                          satisfy firestore.rules
+                          field lists mirror firestore.rules
 tests/                    vitest: firestore.rules.test.ts (emulator) +
                           documents.test.ts (pure)
 ```
@@ -84,12 +82,8 @@ ID-guessing risk).
     project's `isPublic == true`
   - Tests in `tests/firestore.rules.test.ts` read `ownerUid()` out of the
     rules file, so the suite works with any uid.
-- Public invoice flow:
-  - URL parameter is `?v=<projectId>` (handled in `WorkHoursJournal.tsx`)
-  - Owner toggles `isPublic` via the Edit Project modal checkbox
-  - Reads of `workEntries` / `materials` for unauthenticated viewers
-    require the parent project's `isPublic == true`; rules enforce this
-    via `get()` lookup, cached per request
+- Public invoice: `?v=<projectId>` (handled in `WorkHoursJournal.tsx`);
+  the owner toggles `isPublic` in the Edit Project modal.
 
 ## Known Quirks & Tradeoffs
 
@@ -125,5 +119,3 @@ ID-guessing risk).
   (`where('uid', '==', uid)` for the owner, or
   `where('projectId', '==', publicId)` for a public viewer) — otherwise
   Firestore rejects the query.
-- **`README.md`'s project structure tree may lag reality** after
-  infrastructure changes. Verify with `ls` / `find` before trusting it.
