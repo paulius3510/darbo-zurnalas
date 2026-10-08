@@ -63,10 +63,13 @@ VITE_FIREBASE_APP_ID=...
 5. Nustatyti Firestore security rules — failas `firestore.rules` deploy'inamas per Firebase CLI:
 
    ```bash
+   npm run test:rules    # emuliatoriaus testai (reikia Java)
    npm run deploy:rules
    ```
 
-   Nereikia kopijuoti rankomis į Firebase Console.
+   Nereikia kopijuoti rankomis į Firebase Console. Taisyklėse funkcija
+   `ownerUid()` turi tavo Firebase Auth naudotojo UID — tik ši paskyra gali
+   rašyti duomenis.
 
 ## PWA Installation
 

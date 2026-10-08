@@ -2,29 +2,108 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isOwner(data) {
-      return request.auth != null && request.auth.uid == data.uid;
+    // Vienintelė paskyra, kuriai leidžiama rašyti. Tai yra Firebase Auth
+    // naudotojo UID (ne el. paštas). Pakeisk per `npm run deploy:rules`.
+    function ownerUid() {
+      return 'aRoqiQB8vXOwNDZYV82zfMoUG0T2';
+    }
+
+    function isOwnerAccount() {
+      return request.auth != null && request.auth.uid == ownerUid();
+    }
+
+    // Esamas dokumentas priklauso prisijungusiam savininkui.
+    function ownsExisting() {
+      return isOwnerAccount() && resource.data.uid == request.auth.uid;
+    }
+
+    // Įrašomas dokumentas pažymėtas prisijungusio savininko uid.
+    function writesOwnUid() {
+      return isOwnerAccount() && request.resource.data.uid == request.auth.uid;
     }
 
     function isProjectPublic(projectId) {
-      return exists(/databases/$(database)/documents/projects/$(projectId))
-        && get(/databases/$(database)/documents/projects/$(projectId)).data.isPublic == true;
+      return get(/databases/$(database)/documents/projects/$(projectId)).data.isPublic == true;
+    }
+
+    function ownsProject(projectId) {
+      return get(/databases/$(database)/documents/projects/$(projectId)).data.uid == request.auth.uid;
+    }
+
+    // Laukų sąrašai atitinka tipus faile src/api/firebaseAPI.ts.
+    function validProject(d) {
+      return d.keys().hasOnly(['id', 'name', 'client', 'address', 'hourlyRate', 'paidAmount', 'status', 'isPublic', 'createdAt', 'uid'])
+        && d.id is string
+        && d.name is string
+        && d.client is string
+        && d.address is string
+        && d.hourlyRate is number
+        && d.paidAmount is number
+        && d.status in ['active', 'completed']
+        && d.isPublic is bool
+        && d.createdAt is string
+        && d.uid is string;
+    }
+
+    function validWorkEntry(d) {
+      return d.keys().hasOnly(['id', 'projectId', 'date', 'startTime', 'endTime', 'hours', 'notes', 'uid'])
+        && d.id is string
+        && d.projectId is string
+        && d.date is string
+        && d.startTime is string
+        && d.endTime is string
+        && d.hours is number
+        && d.notes is string
+        && d.uid is string;
+    }
+
+    function validMaterial(d) {
+      return d.keys().hasOnly(['id', 'projectId', 'date', 'name', 'quantity', 'amount', 'uid'])
+        && d.id is string
+        && d.projectId is string
+        && d.date is string
+        && d.name is string
+        && d.quantity is string
+        && d.amount is number
+        && d.uid is string;
     }
 
     match /projects/{id} {
-      allow get: if resource.data.isPublic == true || isOwner(resource.data);
-      allow list: if request.auth != null && request.auth.uid == resource.data.uid;
-      allow write: if request.auth != null && (resource == null || request.auth.uid == resource.data.uid);
+      allow get: if resource.data.isPublic == true || ownsExisting();
+      allow list: if ownsExisting();
+      allow create: if writesOwnUid()
+        && request.resource.data.id == id
+        && validProject(request.resource.data);
+      allow update: if ownsExisting()
+        && writesOwnUid()
+        && validProject(request.resource.data);
+      allow delete: if ownsExisting();
     }
 
     match /workEntries/{id} {
-      allow read: if isOwner(resource.data) || isProjectPublic(resource.data.projectId);
-      allow write: if request.auth != null && (resource == null || request.auth.uid == resource.data.uid);
+      allow read: if ownsExisting() || isProjectPublic(resource.data.projectId);
+      allow create: if writesOwnUid()
+        && request.resource.data.id == id
+        && validWorkEntry(request.resource.data)
+        && ownsProject(request.resource.data.projectId);
+      allow update: if ownsExisting()
+        && writesOwnUid()
+        && validWorkEntry(request.resource.data)
+        && ownsProject(request.resource.data.projectId);
+      allow delete: if ownsExisting();
     }
 
     match /materials/{id} {
-      allow read: if isOwner(resource.data) || isProjectPublic(resource.data.projectId);
-      allow write: if request.auth != null && (resource == null || request.auth.uid == resource.data.uid);
+      allow read: if ownsExisting() || isProjectPublic(resource.data.projectId);
+      allow create: if writesOwnUid()
+        && request.resource.data.id == id
+        && validMaterial(request.resource.data)
+        && ownsProject(request.resource.data.projectId);
+      allow update: if ownsExisting()
+        && writesOwnUid()
+        && validMaterial(request.resource.data)
+        && ownsProject(request.resource.data.projectId);
+      allow delete: if ownsExisting();
     }
   }
 }

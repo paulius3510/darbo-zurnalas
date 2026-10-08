@@ -9,6 +9,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { toMaterialDoc, toProjectDoc, toWorkEntryDoc } from './documents';
 
 export interface Project {
   id: string;
@@ -91,7 +92,7 @@ export async function getPublicProjectData(projectId: string): Promise<PublicPro
 // --- Projects ---
 
 export async function saveProject(project: Project): Promise<void> {
-  await setDoc(doc(db, 'projects', project.id), project);
+  await setDoc(doc(db, 'projects', project.id), toProjectDoc(project as unknown as Record<string, unknown>));
 }
 
 export async function deleteProject(id: string): Promise<void> {
@@ -101,7 +102,7 @@ export async function deleteProject(id: string): Promise<void> {
 // --- Work Entries ---
 
 export async function saveWorkEntry(entry: WorkEntry): Promise<void> {
-  await setDoc(doc(db, 'workEntries', entry.id), entry);
+  await setDoc(doc(db, 'workEntries', entry.id), toWorkEntryDoc(entry as unknown as Record<string, unknown>));
 }
 
 export async function deleteWorkEntry(id: string): Promise<void> {
@@ -111,7 +112,7 @@ export async function deleteWorkEntry(id: string): Promise<void> {
 // --- Materials ---
 
 export async function saveMaterial(material: MaterialEntry): Promise<void> {
-  await setDoc(doc(db, 'materials', material.id), material);
+  await setDoc(doc(db, 'materials', material.id), toMaterialDoc(material as unknown as Record<string, unknown>));
 }
 
 export async function deleteMaterial(id: string): Promise<void> {

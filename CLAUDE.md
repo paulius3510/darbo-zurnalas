@@ -36,6 +36,12 @@ src/firebase.ts           Firebase init + Firestore cache configuration
 src/api/firebaseAPI.ts    sole CRUD wrapper around Firestore; type
                           definitions for Project / WorkEntry /
                           MaterialEntry / PublicProjectData live here
+src/api/documents.ts      pure mappers (toProjectDoc / toWorkEntryDoc /
+                          toMaterialDoc) that every save goes through;
+                          they whitelist fields and coerce types so writes
+                          satisfy firestore.rules
+tests/                    vitest: firestore.rules.test.ts (emulator) +
+                          documents.test.ts (pure)
 ```
 
 Three top-level Firestore collections: `projects`, `workEntries`,
@@ -53,16 +59,31 @@ ID-guessing risk).
 - `npm run deploy:indexes` — push `firestore.indexes.json`
 - `npm run deploy:firestore` — both rules and indexes
 - `npm run emulators` — local Firestore + Auth + UI on ports 8080 / 9099 / 4000
+- `npm run test:rules` — starts the Firestore emulator and runs the whole
+  vitest suite (`tests/`). Needs Java on `PATH`; on this Mac it is the
+  Homebrew keg: `export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"`.
+  Run this before every `npm run deploy:rules`.
 
 ## Firebase Specifics
 
 - Project ID `darbo-zurnalas-59881` (set in `.firebaserc`)
 - Spark (no-cost) tier — watch read budget when changing query patterns
 - Auth: Google provider only (`signInWithPopup`)
-- Firestore rules helpers (`firestore.rules`):
-  - `isOwner(data)` — `request.auth.uid == data.uid`
+- Firestore rules (`firestore.rules`) — single-owner model:
+  - `ownerUid()` hard-codes the one Auth UID allowed to write. Every
+    `create`/`update`/`delete` requires `isOwnerAccount()`; a different
+    Google account is denied even with its own `uid` in the data.
+  - `ownsExisting()` / `writesOwnUid()` — `resource.data.uid` and
+    `request.resource.data.uid` must equal the caller's uid.
+  - `validProject` / `validWorkEntry` / `validMaterial` — `keys().hasOnly`
+    field allow-lists + `is <type>` checks. **Field lists must match
+    `src/api/documents.ts`**; change both together and add a test.
+  - `ownsProject(projectId)` — `get()` on create/update of entries and
+    materials: `projectId` must point at the owner's project.
   - `isProjectPublic(projectId)` — `get()` lookup; true only if the parent
     project's `isPublic == true`
+  - Tests in `tests/firestore.rules.test.ts` read `ownerUid()` out of the
+    rules file, so the suite works with any uid.
 - Public invoice flow:
   - URL parameter is `?v=<projectId>` (handled in `WorkHoursJournal.tsx`)
   - Owner toggles `isPublic` via the Edit Project modal checkbox
@@ -77,13 +98,25 @@ ID-guessing risk).
   explicitly asked.
 - **`WorkHoursJournal.tsx` is ~1000 lines** and intentionally monolithic.
   A refactor sits on the backlog; do NOT split it unless explicitly asked.
+- **Project docs in Firestore may still carry legacy `workEntries: []` /
+  `materials: []` arrays** written before `src/api/documents.ts` existed.
+  Reads tolerate them; the next save strips them. Never bypass the
+  `to*Doc` mappers when writing, or the rules reject the write.
 - **Math.random IDs are not crypto-secure** but accepted. The
   private-by-default `isPublic` flag mitigates ID-guessing risk. Don't
   switch to `crypto.randomUUID()` unsolicited.
-- **5 npm-audit vulnerabilities** are transitive deps of `firebase-tools`
-  (devDep only); they do not ship in the production bundle.
-- **Bundle is ~728 KB / ~185 KB gzip.** Code-splitting / `manualChunks`
+- **~22 npm-audit vulnerabilities** are transitive deps of build/deploy
+  tooling (`firebase-tools`, `tailwindcss` 3, `gh-pages`) plus Node-only
+  `@grpc/grpc-js` under `firebase`; none ship in the browser bundle. The
+  only "fixes" npm offers are semver-major (Tailwind 4, firebase 9
+  downgrade) — do NOT run `npm audit fix --force`.
+- **Bundle is ~740 KB / ~188 KB gzip.** Code-splitting / `manualChunks`
   is on the backlog; ignore the Vite size warning.
+- **`firebase` is pinned to `~12.14.0` on purpose.** Starting with
+  12.15.0 the Firestore SDK adds ~215 KB (+60 KB gzip) to the production
+  bundle with no code change on our side (verified by bisecting 12.12 →
+  12.19). Do NOT bump past 12.14.x unless the bundle size is re-checked
+  with `npm run build`.
 - **Do NOT reintroduce `enableIndexedDbPersistence`** — migrated to
   `persistentLocalCache` for Firebase v12 deprecation. The new API is
   synchronous and applied at init.
