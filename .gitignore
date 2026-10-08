@@ -37,3 +37,6 @@ build/
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+
+# Deep-research working notes (the synthesized report lives in reports/)
+research_notes/
